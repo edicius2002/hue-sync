@@ -1,0 +1,20 @@
+# Entorno virtual
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# CREDENCIALES DEL BRIDGE. Contiene el clientkey (PSK del handshake DTLS).
+# Nunca debe versionarse. La plantilla es hue_config.example.json.
+hue_config.json
+
+# Grabaciones de calibracion
+*.wav
+
+# Editores
+.vscode/
+.idea/

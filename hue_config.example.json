@@ -1,0 +1,6 @@
+{
+  "bridge_ip": "192.168.1.50",
+  "username": "<40 caracteres, lo emite el bridge al registrar>",
+  "clientkey": "<32 hex, la PSK del handshake DTLS>",
+  "entertainment_area_id": "<UUID del area, lo rellena run.py register>"
+}

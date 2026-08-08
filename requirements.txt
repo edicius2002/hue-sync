@@ -1,0 +1,18 @@
+# MVP - Fase 1 (captura + analisis). Python 3.11 o 3.12.
+numpy>=1.26
+PyAudioWPatch>=0.2.12.7
+PyYAML>=6.0
+
+# Setup y lectura de configuracion del bridge (CLIP v2).
+# El loop principal no pasa por REST: va por DTLS.
+requests>=2.31
+
+# Fase 2 - streaming Entertainment.
+# Backend DTLS-PSK en Python puro. Es el que funciona: reenvia el ClientHello
+# con cookie cuando el bridge exige HelloVerifyRequest.
+hue-entertainment>=0.1.2
+
+# Backend alternativo, seleccionable con --backend mbedtls. NO funciona contra
+# BSB002 firmware 1.78.0 (no retransmite el flight de handshake perdido) y no
+# publica wheels para Python 3.13. Se conserva solo como comparacion.
+# python-mbedtls>=2.10.1

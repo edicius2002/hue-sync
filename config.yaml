@@ -1,0 +1,91 @@
+# Configuracion del MVP. Todo lo ajustable vive aqui; las credenciales del
+# bridge van aparte en hue_config.json y nunca en el codigo.
+
+audio:
+  # Bloque de captura. 256 @ 48 kHz = 5.3 ms de latencia de captura.
+  blocksize: 256
+  buffer_seconds: 10.0
+  # Subcadena del nombre del dispositivo, p.ej. "JBL Charge 6".
+  # Preferible al indice: los indices de WASAPI se renumeran solos en cuanto
+  # conectas o desconectas cualquier dispositivo de audio.
+  device_name: null
+  # Tiene prioridad sobre device_name. null y sin nombre = el del sistema.
+  device_index: null
+
+analysis:
+  fft_size: 1024
+  hop: 256                 # 187.5 frames/s a 48 kHz
+
+  # Limites del espectro por banda, en Hz.
+  band_edges:
+    - [20.0, 250.0]        # graves
+    - [250.0, 2000.0]      # medios
+    - [2000.0, 16000.0]    # agudos
+
+  # El tempo se sigue sobre todo con graves: bombo y caja marcan el pulso,
+  # los hi-hats marcan corcheas y confunden al detector.
+  low_cutoff_hz: 500.0
+  tempo_low_weight: 1.0
+  tempo_full_weight: 0.3
+
+  min_bpm: 60.0
+  max_bpm: 180.0
+  # Centro y ancho (en octavas) del prior que desempata errores de octava.
+  prior_bpm: 120.0
+  prior_width: 0.9
+  history_seconds: 6.0
+  estimate_interval: 0.5
+  # Debe cubrir varios beats: cerca de un periodo de beat actua como notch
+  # en la frecuencia del pulso.
+  smoothing_seconds: 1.5
+
+  # Multiplos del lag que refuerzan un candidato. El 3 distingue el pulso real
+  # de un candidato a 1.5x (para el real todos los multiplos correlacionan;
+  # para uno a 1.5x solo los pares).
+  harmonics:
+    - [2, 0.5]
+    - [3, 0.35]
+    - [4, 0.25]
+
+  # Ganancias del PLL. Mas alto = corrige antes pero sigue mas el ruido.
+  phase_gain: 0.45
+  period_gain: 0.12
+  # Medido sobre musica real: los pasajes turbios bajan a ~0.29 de confianza,
+  # asi que un umbral de 0.25 no dejaba margen. A partir de full_confidence el
+  # PLL corrige con la ganancia completa.
+  min_confidence: 0.15
+  full_confidence: 0.6
+
+  band_peak_decay: 0.5     # factor por segundo del seguidor de pico
+  band_attack: 0.005
+  band_release: 0.15
+
+  silence_rms: 0.0001
+  silence_timeout: 2.0
+
+effects:
+  mode: combo              # combo | beat_flash | spectrum
+
+  # El brillo sube durante esta fraccion del beat ANTES del golpe. Es lo que
+  # convierte el efecto en algo que se anticipa al ritmo en vez de reaccionar,
+  # y solo es posible porque el BeatClock predice el proximo beat.
+  beat_attack: 0.08
+  beat_decay: 4.0          # caida tras el golpe, en unidades de 1/beat
+  beat_floor: 0.12         # brillo entre golpes; a 0 parpadea agresivo
+
+  # Mapeo frecuencia -> color.
+  bass_color: [1.0, 0.12, 0.0]
+  mid_color: [0.1, 1.0, 0.25]
+  treble_color: [0.25, 0.45, 1.0]
+
+  # Reposo cuando no suena nada: tenue y fijo, nunca apagado.
+  idle_color: [1.0, 0.55, 0.2]
+  idle_brightness: 0.07
+
+  saturation_boost: 1.15   # las luces Hue lavan los tonos mezclados
+
+render:
+  fps: 50.0
+  # Cuanto ANTES del beat se emite el comando, para cubrir analisis + DTLS +
+  # el salto Zigbee del bridge. Se calibra contra las luces reales.
+  latency_compensation_ms: 120.0
