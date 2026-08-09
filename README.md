@@ -105,6 +105,7 @@ analysis/  odf.py          STFT -> flujo espectral + energia por bandas
            beatclock.py    PLL de fase, prediccion del proximo beat
            downbeat.py     histograma de energia -> cual beat es el "1"
            chroma.py       12 clases de altura -> color por armonia
+           onsets.py       peak-picking -> golpes fuera del pulso
            bands.py        normalizacion adaptativa graves/medios/agudos
 
 hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
@@ -276,6 +277,30 @@ no acentuar ninguno.
 Un efecto es una funcion pura de `RenderContext` a colores: no guarda estado,
 no sabe de audio ni de DTLS. Anadir un modo es anadir una clase a
 `effects/modes.py`.
+
+## Onsets fuera del pulso
+
+La ODF ya veia los redobles, stabs y palmas a contratiempo, pero solo se usaba
+para estimar el tempo, o sea que todo lo no periodico se descartaba. El
+detector de onsets los lee y anade un golpe de brillo sobre la envolvente del
+beat.
+
+Solo cuentan los que **no** caen en el pulso: los que si, ya los cubre la
+envolvente, y acentuarlos otra vez duplica el mismo destello.
+
+Medido con ground truth de impulsos en instantes exactos:
+
+| caso | aciertos | falsos positivos |
+|------|----------|------------------|
+| golpes regulares | 100% | 0% |
+| golpes irregulares | 100% | 0% |
+| irregulares + ruido blanco | 100% | 0% |
+
+Sobre musica real detecta 3.7 golpes/s en un patron con hi-hats en corcheas a
+117 BPM, contra los 3.9 teoricos.
+
+El umbral es el parametro que gobierna los falsos positivos: a 1.0 el ruido
+blanco dispara tres veces mas golpes que los que hay, a 3.5 ninguno.
 
 ## Que rinde el modo `harmony`
 

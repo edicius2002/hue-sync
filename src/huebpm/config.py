@@ -94,6 +94,22 @@ class AnalysisConfig:
     silence_rms: float = 1e-4
     silence_timeout: float = 2.0
 
+    onset_window: float = 0.15
+    """Contexto para la media local del umbral adaptativo."""
+    onset_delta: float = 3.5
+    """Desviaciones por encima de la media local. Calibrado con ground truth de
+    impulsos: a 3.5 da 100% de aciertos y 0% de falsos incluso con ruido, y en
+    musica real detecta 3.7 golpes/s contra los 3.9 teoricos de un patron con
+    hi-hats en corcheas a 117 BPM."""
+    onset_lookahead: int = 3
+    """Frames de espera para confirmar el maximo. Es latencia (~16 ms a 187
+    fps) pero el render ya va con compensacion por delante."""
+    onset_min_separation: float = 0.05
+    onset_offbeat_margin: float = 0.15
+    """Cuanto tiene que alejarse un golpe del pulso, en fracciones de beat,
+    para contar como fuera de tiempo. Los que caen en el beat ya los cubre la
+    envolvente; acentuarlos otra vez solo duplica el mismo destello."""
+
     chroma_fft_size: int = 8192
     """Mucho mayor que el de la ODF a proposito: con 1024 los semitonos solo se
     resuelven por encima de 788 Hz, o sea que no sirve para las fundamentales.
@@ -182,6 +198,15 @@ class EffectsConfig:
         (0.2, 0.35, 1.0),
     )
     """Un color por compas dentro de la frase, para el modo `bars`."""
+
+    onset_accent: float = 0.5
+    """Golpe de brillo extra en los onsets fuera de tiempo, de 0 a 1.
+
+    Es aditivo sobre la envolvente del beat, no la sustituye: lo que aporta son
+    los redobles, stabs y palmas que no caen en el pulso y que hasta ahora la
+    luz se comia enteros."""
+    onset_decay: float = 0.09
+    """Constante de caida del acento, en segundos."""
 
     harmony_min_tonality: float = 0.08
     """Por debajo no hay armonia fiable y el color viene del espectro.

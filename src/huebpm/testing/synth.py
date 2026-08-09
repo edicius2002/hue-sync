@@ -172,3 +172,38 @@ def progression(
         trozos.append(audio)
         notas.append(pcs)
     return np.concatenate(trozos), notas
+
+
+# --- ground truth para onsets ------------------------------------------------
+
+
+def impulse_track(
+    times,
+    duration: float,
+    samplerate: int = 48000,
+    noise_level: float = 0.0,
+    gains=None,
+    seed: int = 0,
+) -> np.ndarray:
+    """Golpes percusivos en instantes exactos conocidos.
+
+    Es el ground truth mas limpio posible para medir un detector de onsets: se
+    sabe al milisegundo donde esta cada golpe, asi que precision y recall son
+    numeros, no impresiones.
+    """
+    rng = np.random.default_rng(seed)
+    n = int(duration * samplerate)
+    out = np.zeros(n + samplerate, dtype=np.float32)
+    golpe = _snare(samplerate)
+    for i, t in enumerate(times):
+        idx = int(round(t * samplerate))
+        gain = 1.0 if gains is None else gains[i]
+        if 0 <= idx < n:
+            out[idx : idx + len(golpe)] += golpe * gain
+    out = out[:n]
+    if noise_level:
+        out += rng.standard_normal(n).astype(np.float32) * noise_level
+    peak = np.abs(out).max()
+    if peak > 0:
+        out = out / peak * 0.7
+    return out.astype(np.float32)

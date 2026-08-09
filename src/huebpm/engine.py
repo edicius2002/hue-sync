@@ -20,6 +20,7 @@ from .analysis.beatclock import BeatClock
 from .analysis.chroma import ChromaAnalyzer
 from .analysis.downbeat import BarTracker
 from .analysis.odf import SpectralAnalyzer
+from .analysis.onsets import OnsetDetector
 from .analysis.tempo import TempoTracker
 from .config import AnalysisConfig
 from .state import AudioState, StatePublisher
@@ -100,6 +101,13 @@ class AnalysisEngine:
             unlock_confidence=cfg.downbeat_unlock_confidence,
             offset_hold=cfg.downbeat_offset_hold,
         )
+        self.onsets = OnsetDetector(
+            frame_rate=self.spectral.frame_rate,
+            window=cfg.onset_window,
+            delta=cfg.onset_delta,
+            lookahead=cfg.onset_lookahead,
+            min_separation=cfg.onset_min_separation,
+        )
         self.chroma = ChromaAnalyzer(
             samplerate,
             fft_size=cfg.chroma_fft_size,
@@ -116,6 +124,8 @@ class AnalysisEngine:
 
         self._last_estimate_t = 0.0
         self._frames_analyzed = 0
+        self._last_onset_time = -1e9
+        self._last_onset_strength = 0.0
         self._current_beat: int | None = None
         self._beat_energy = 0.0
         self._clock_generation = self.clock.generation
@@ -144,6 +154,7 @@ class AnalysisEngine:
             self.tempo.push(w_low * f.flux_low + w_full * f.flux, f.t)
         self._frames_analyzed += len(frames)
 
+        self._detect_onsets(frames)
         self.chroma.process(samples)
         band_levels = self.bands.update(frames[-1].bands, dt)
         self._accumulate_beat_energy(frames)
@@ -186,11 +197,35 @@ class AnalysisEngine:
                 bands=band_levels,
                 chroma_hue=self.chroma.hue,
                 tonality=self.chroma.tonality,
+                last_onset_time=self._last_onset_time,
+                last_onset_strength=self._last_onset_strength,
                 rms=rms,
                 silent=silent,
                 frames_analyzed=self._frames_analyzed,
             )
         )
+
+    def _detect_onsets(self, frames) -> None:  # noqa: ANN001
+        """Guarda solo los golpes que NO caen en el pulso.
+
+        Los que caen en el beat ya los cubre la envolvente del reloj;
+        acentuarlos otra vez solo duplica el mismo destello. Lo que aporta esto
+        son los redobles, stabs y palmas a contratiempo, que hasta ahora se
+        descartaban porque el analisis solo buscaba periodicidad.
+        """
+        margen = self.cfg.onset_offbeat_margin
+        for f in frames:
+            onset = self.onsets.push(f.flux, f.t)
+            if onset is None:
+                continue
+            wall = self.mapper.to_wall(onset.t)
+            if self.clock.locked:
+                fase = self.clock.phase(wall)
+                distancia = min(fase, 1.0 - fase)
+                if distancia < margen:
+                    continue
+            self._last_onset_time = wall
+            self._last_onset_strength = onset.strength
 
     def _accumulate_beat_energy(self, frames) -> None:  # noqa: ANN001
         """Mide la fuerza del golpe de graves de cada beat para el BarTracker.

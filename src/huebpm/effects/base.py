@@ -104,6 +104,22 @@ def smooth_envelope(ctx: RenderContext) -> float:
     return 0.5 + 0.5 * math.cos(2.0 * math.pi * ctx.clock.phase(ctx.now))
 
 
+def onset_accent(ctx: RenderContext) -> float:
+    """Golpe de brillo extra que decae tras un onset fuera de tiempo, 0..1.
+
+    Es funcion pura del tiempo transcurrido porque el estado publica el
+    instante del golpe y no un nivel ya calculado. Asi el efecto no guarda nada
+    y sigue siendo testeable sin motor.
+    """
+    if ctx.cfg.onset_accent <= 0.0:
+        return 0.0
+    transcurrido = ctx.now - ctx.state.last_onset_time
+    if transcurrido < 0.0 or transcurrido > 8.0 * ctx.cfg.onset_decay:
+        return 0.0
+    caida = math.exp(-transcurrido / max(1e-6, ctx.cfg.onset_decay))
+    return ctx.cfg.onset_accent * ctx.state.last_onset_strength * caida
+
+
 def gentle_brightness(ctx: RenderContext, depth: float, max_step: float) -> float:
     """Brillo sinusoidal con la pendiente acotada, independiente del tempo.
 

@@ -26,6 +26,13 @@ class AudioState:
     tonality: float = 0.0
     """0 = percusion o ruido, 1 = una nota sola. Es lo que evita colorear un
     redoble con un tono arbitrario."""
+    last_onset_time: float = -1e9
+    """Instante del ultimo golpe fuera de tiempo, en tiempo de pared.
+
+    Se publica el instante y no un nivel ya calculado para que los efectos
+    sigan siendo funciones puras: la caida se deriva de `now - last_onset_time`.
+    """
+    last_onset_strength: float = 0.0
     rms: float = 0.0
     silent: bool = True
     frames_analyzed: int = 0

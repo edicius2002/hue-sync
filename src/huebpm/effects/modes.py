@@ -12,6 +12,7 @@ from .base import (
     gentle_brightness,
     harmony_color,
     harmony_mix,
+    onset_accent,
     saturate,
     scale,
     spectrum_color,
@@ -35,7 +36,8 @@ class BeatFlashEffect:
     name = "beat_flash"
 
     def render(self, ctx: RenderContext) -> Channels:
-        return fill(scale(ctx.cfg.idle_color, beat_envelope(ctx)), ctx.channel_count)
+        brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
+        return fill(scale(ctx.cfg.idle_color, brillo), ctx.channel_count)
 
 
 class SpectrumEffect:

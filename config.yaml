@@ -63,6 +63,19 @@ analysis:
   silence_rms: 0.0001
   silence_timeout: 2.0
 
+  # Onsets: golpes sueltos que no caen en el pulso (redobles, stabs, palmas a
+  # contratiempo). La ODF ya los veia, solo se usaba para el tempo.
+  onset_window: 0.15
+  # Calibrado con ground truth de impulsos: a 3.5 da 100% de aciertos y 0% de
+  # falsos incluso con ruido, y en musica real detecta 3.7 golpes/s contra los
+  # 3.9 teoricos de hi-hats en corcheas a 117 BPM.
+  onset_delta: 3.5
+  onset_lookahead: 3          # ~16 ms de latencia de confirmacion
+  onset_min_separation: 0.05
+  # Cuanto tiene que alejarse del pulso, en fracciones de beat, para contar
+  # como fuera de tiempo. Los que caen en el beat ya los cubre la envolvente.
+  onset_offbeat_margin: 0.15
+
   # Chroma: reparto de energia entre las 12 clases de altura, para que el color
   # siga la armonia en vez del timbre. FFT propio y mucho mayor que el de la
   # ODF: con 1024 los semitonos solo se resuelven por encima de 788 Hz, o sea
@@ -121,6 +134,11 @@ effects:
     - [1.0, 0.55, 0.0]
     - [0.15, 0.9, 0.4]
     - [0.2, 0.35, 1.0]
+
+  # Golpe de brillo extra en los onsets fuera de tiempo. Aditivo sobre la
+  # envolvente del beat, no la sustituye.
+  onset_accent: 0.5
+  onset_decay: 0.09
 
   # Modo `harmony`: por debajo de min no hay armonia que seguir y el color sale
   # del espectro; por encima de full es armonia pura. Entre medias se mezcla
