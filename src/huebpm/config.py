@@ -99,11 +99,16 @@ class AnalysisConfig:
     downbeat_decay: float = 0.97
     """Decaimiento del histograma de compas. Bajo = se readapta rapido a un
     cambio de seccion pero es mas inestable."""
-    downbeat_min_confidence: float = 0.10
-    """Calibrado sobre musica real, no sintetica: Billie Jean (backbeat claro)
-    da 0.133 y Summer (house four-on-the-floor, sin metrica por tiempo) da
-    0.051. El margen es de solo 2.6x, asi que este umbral es el parametro mas
-    fragil del proyecto: esta ajustado sobre dos canciones."""
+    downbeat_min_confidence: float = 0.14
+    """Umbral para ENGANCHAR. Calibrado sobre musica real, no sintetica."""
+    downbeat_unlock_confidence: float = 0.07
+    """Umbral para SOLTAR. La histeresis no es opcional: medido en vivo, la
+    confianza oscila entre 0.03 y 0.27 sobre el mismo tema, asi que con un
+    solo umbral la feature entra y sale cada pocos segundos."""
+    downbeat_offset_hold: int = 8
+    """Compases que otra posicion tiene que ganar de forma sostenida antes de
+    mover el "1". Un downbeat estable pero desplazado es util; uno correcto a
+    ratos, no."""
 
 
 @dataclass

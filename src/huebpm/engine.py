@@ -96,6 +96,8 @@ class AnalysisEngine:
             beats_per_phrase=cfg.beats_per_phrase,
             decay=cfg.downbeat_decay,
             min_confidence=cfg.downbeat_min_confidence,
+            unlock_confidence=cfg.downbeat_unlock_confidence,
+            offset_hold=cfg.downbeat_offset_hold,
         )
         self.mapper = ClockMapper()
         self.publisher = StatePublisher()

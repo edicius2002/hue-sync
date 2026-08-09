@@ -302,9 +302,17 @@ compas ahi se marca con cambios de armonia y estructura cada 8 o 16 compases,
 que es territorio de los issues #7 y #8. Cuando no hay enganche los efectos
 degradan a tratar todos los beats por igual.
 
-**El umbral es el parametro mas fragil del proyecto.** El margen entre los dos
-casos medidos es de solo 2.6x y esta ajustado sobre dos canciones. Si aparece
-material que engancha cuando no deberia, es el primer sitio donde mirar.
+**La estabilidad importa mas que el acierto.** La primera version usaba un
+solo umbral y en vivo la confianza oscila entre 0.03 y 0.27 sobre el mismo
+tema, asi que enganchaba y desenganchaba cada pocos segundos y el "1" saltaba
+de posicion. El color cambiaba en un tiempo distinto cada vez, que se ve peor
+que no cambiarlo nunca. Con histeresis (0.14 para enganchar, 0.07 para soltar)
+y exigiendo 8 compases antes de mover el downbeat, los cambios de posicion
+pasaron de 13 a 0 sobre la misma grabacion.
+
+**El umbral sigue siendo el parametro mas fragil del proyecto**, calibrado
+sobre dos canciones. Si aparece material que engancha cuando no deberia, es el
+primer sitio donde mirar.
 
 ## Nota de diseno: numero de canales
 
