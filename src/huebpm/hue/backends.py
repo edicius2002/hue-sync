@@ -16,7 +16,7 @@ reenvia el ClientHello con la cookie y engancha.
 from __future__ import annotations
 
 import contextlib
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 Channels = dict[int, tuple[float, float, float]]
 
@@ -25,7 +25,11 @@ class StreamError(RuntimeError):
     """Fallo de conexion o envio hacia el bridge."""
 
 
+@runtime_checkable
 class StreamBackend(Protocol):
+    """runtime_checkable para que los dobles de prueba puedan verificar que
+    siguen cumpliendo el contrato cuando este cambie."""
+
     def connect(self, host: str, username: str, clientkey: str, area_id: str) -> None: ...
     def send(self, channels: Channels) -> None: ...
     def close(self) -> None: ...
