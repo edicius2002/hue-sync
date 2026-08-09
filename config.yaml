@@ -63,6 +63,21 @@ analysis:
   silence_rms: 0.0001
   silence_timeout: 2.0
 
+  # Chroma: reparto de energia entre las 12 clases de altura, para que el color
+  # siga la armonia en vez del timbre. FFT propio y mucho mayor que el de la
+  # ODF: con 1024 los semitonos solo se resuelven por encima de 788 Hz, o sea
+  # que no sirve para las fundamentales. Con 8192 se resuelven desde 99 Hz.
+  chroma_fft_size: 8192
+  chroma_hop: 2048
+  chroma_fmin: 100.0
+  chroma_fmax: 2000.0        # por encima dominan armonicos de OTRA clase
+  chroma_smoothing: 0.93
+  chroma_tonality_smoothing: 0.97   # mas fuerte: gobierna la mezcla de color
+  # Acumular solo los maximos locales del espectro. En mezcla completa la
+  # bateria aplana el chroma; quedarse con los picos sube la separacion entre
+  # musica y ruido de 3.9x a 8.8x.
+  chroma_peaks_only: true
+
   # Seguimiento del compas. La energia de graves de cada beat se acumula en un
   # histograma modulo beats_per_bar; el maximo es el "1".
   beats_per_bar: 4
@@ -78,7 +93,7 @@ analysis:
   downbeat_offset_hold: 8           # compases antes de mover el "1"
 
 effects:
-  mode: combo              # combo | bars | beat_flash | spectrum
+  mode: combo              # combo | harmony | bars | beat_flash | spectrum
 
   # El brillo sube durante esta fraccion del beat ANTES del golpe. Es lo que
   # convierte el efecto en algo que se anticipa al ritmo en vez de reaccionar,
@@ -106,6 +121,13 @@ effects:
     - [1.0, 0.55, 0.0]
     - [0.15, 0.9, 0.4]
     - [0.2, 0.35, 1.0]
+
+  # Modo `harmony`: por debajo de min no hay armonia que seguir y el color sale
+  # del espectro; por encima de full es armonia pura. Entre medias se mezcla
+  # progresivamente, porque un corte seco produce un fogonazo al cruzarlo.
+  harmony_min_tonality: 0.02
+  harmony_full_tonality: 0.08
+  harmony_saturation: 0.9
 
   saturation_boost: 1.15   # las luces Hue lavan los tonos mezclados
 

@@ -94,6 +94,25 @@ class AnalysisConfig:
     silence_rms: float = 1e-4
     silence_timeout: float = 2.0
 
+    chroma_fft_size: int = 8192
+    """Mucho mayor que el de la ODF a proposito: con 1024 los semitonos solo se
+    resuelven por encima de 788 Hz, o sea que no sirve para las fundamentales.
+    Con 8192 se resuelven desde 99 Hz. Se paga en resolucion temporal, que aqui
+    da igual: los acordes duran segundos, no milisegundos."""
+    chroma_hop: int = 2048
+    chroma_fmin: float = 100.0
+    chroma_fmax: float = 2000.0
+    """Por encima dominan los armonicos, y el tercero cae una quinta arriba, o
+    sea en otra clase de altura: ampliar el rango anade ruido tonal."""
+    chroma_smoothing: float = 0.93
+    chroma_tonality_smoothing: float = 0.97
+    """Mas fuerte que el del chroma a proposito: la tonalidad gobierna la
+    mezcla entre color armonico y espectral, y si oscila el color va y viene
+    entre dos fuentes distintas."""
+    chroma_peaks_only: bool = True
+    """Acumular solo los maximos locales del espectro. En mezcla completa sube
+    la separacion entre musica y ruido de 3.9x a 8.8x."""
+
     beats_per_bar: int = 4
     beats_per_phrase: int = 16
     downbeat_decay: float = 0.97
@@ -160,6 +179,15 @@ class EffectsConfig:
         (0.2, 0.35, 1.0),
     )
     """Un color por compas dentro de la frase, para el modo `bars`."""
+
+    harmony_min_tonality: float = 0.02
+    """Por debajo no hay armonia que seguir y el color viene del espectro."""
+    harmony_full_tonality: float = 0.08
+    """A partir de aqui el color es armonia pura. Entre los dos se mezcla
+    progresivamente: un corte seco produce un fogonazo al cruzarlo."""
+    """Por debajo de esto no hay armonia que seguir (percusion, ruido) y el
+    modo `harmony` cae a color espectral en vez de inventarse un tono."""
+    harmony_saturation: float = 0.9
 
     saturation_boost: float = 1.15
     """Las luces Hue lavan los colores; un poco de saturacion extra compensa."""

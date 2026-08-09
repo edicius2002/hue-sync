@@ -57,7 +57,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe run.py sync --dry-run --mode beat_flash
 ```
 
-Modos: `combo` (por defecto), `bars`, `beat_flash`, `spectrum`.
+Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`.
 
 ### Bridge (una sola vez)
 
@@ -104,6 +104,7 @@ analysis/  odf.py          STFT -> flujo espectral + energia por bandas
            tempo.py        autocorrelacion -> BPM y fase
            beatclock.py    PLL de fase, prediccion del proximo beat
            downbeat.py     histograma de energia -> cual beat es el "1"
+           chroma.py       12 clases de altura -> color por armonia
            bands.py        normalizacion adaptativa graves/medios/agudos
 
 hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
@@ -111,7 +112,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | bars | beat_flash | spectrum | idle
+           modes.py        combo | harmony | bars | beat_flash | spectrum | idle
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico
@@ -275,6 +276,30 @@ no acentuar ninguno.
 Un efecto es una funcion pura de `RenderContext` a colores: no guarda estado,
 no sabe de audio ni de DTLS. Anadir un modo es anadir una clase a
 `effects/modes.py`.
+
+## Que rinde el modo `harmony`
+
+El color deja de responder al timbre de la mezcla y responde a que notas
+suenan. Medido:
+
+| material | tonalidad detectada |
+|----------|---------------------|
+| acordes sintetizados | 0.20 - 0.41 |
+| musica real (mezcla completa) | 0.04 - 0.05 |
+| ruido blanco | 0.008 |
+
+Identifica las 12 notas sueltas y todas las notas de triadas, septimas y
+quintas, con armonicos incluidos. Volver al mismo acorde devuelve el mismo
+color.
+
+**En mezcla completa la ganancia es modesta.** El color resulta un 15% mas
+estable que el espectral (0.016 contra 0.019 de movimiento por frame), no el
+salto que sugiere la prueba sintetica. La bateria reparte energia por las 12
+clases y aplana el chroma, asi que la tonalidad de una mezcla real queda mucho
+mas cerca del ruido que de un acorde limpio. Donde de verdad luce es en
+material tonal y poco denso.
+
+Coste: 1.4% de un nucleo sobre lo que ya habia.
 
 ## Limites del seguimiento de compas
 

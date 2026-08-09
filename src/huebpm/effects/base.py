@@ -11,6 +11,7 @@ golpe y solo poder reaccionar despues.
 
 from __future__ import annotations
 
+import colorsys
 import math
 from dataclasses import dataclass
 from typing import Protocol
@@ -106,6 +107,32 @@ def saturate(color: Color, boost: float) -> Color:
     return tuple(  # type: ignore[return-value]
         max(0.0, min(1.0, mean + (c - mean) * boost)) for c in color
     )
+
+
+def harmony_color(ctx: RenderContext) -> Color:
+    """Color derivado de la posicion en el circulo cromatico."""
+    # La saturacion sigue a la tonalidad: cuanto mas clara es la armonia, mas
+    # puro el color. Un pasaje ambiguo se ve lavado en vez de mentir.
+    sat = min(1.0, ctx.cfg.harmony_saturation * ctx.state.tonality / 0.08)
+    return colorsys.hsv_to_rgb(ctx.state.chroma_hue, sat, 1.0)
+
+
+def harmony_mix(ctx: RenderContext) -> float:
+    """Cuanto fiarse de la armonia, 0..1.
+
+    Es una rampa y no un umbral duro por una razon medida: con un corte seco,
+    cruzarlo produce un salto de color de casi el rango entero (0.99 sobre 1.0
+    de distancia RGB), que se ve como un fogonazo cuando la tonalidad ronda el
+    limite. Mezclando progresivamente hacia el color espectral, el paso es
+    invisible.
+    """
+    minimo = ctx.cfg.harmony_min_tonality
+    rango = max(1e-6, ctx.cfg.harmony_full_tonality - minimo)
+    return max(0.0, min(1.0, (ctx.state.tonality - minimo) / rango))
+
+
+def blend(a: Color, b: Color, t: float) -> Color:
+    return tuple(x + (y - x) * t for x, y in zip(a, b, strict=True))  # type: ignore[return-value]
 
 
 def scale(color: Color, factor: float) -> Color:
