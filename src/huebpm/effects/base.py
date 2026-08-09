@@ -33,6 +33,17 @@ class RenderContext:
     channel_count: int
     cfg: EffectsConfig
 
+    bar_phase: float = 0.0
+    """Posicion dentro del compas, 0..1. 0 es el downbeat."""
+    phrase_phase: float = 0.0
+    """Posicion dentro de la frase de `beats_per_phrase`, 0..1."""
+    beat_in_bar: int = 0
+    """Que tiempo del compas es este. 0 es el "1"."""
+    bar_locked: bool = False
+    """False mientras no haya evidencia suficiente de donde cae el compas. Los
+    efectos deben degradar a tratar todos los beats por igual, no inventarse
+    un downbeat que no esta."""
+
 
 class Effect(Protocol):
     name: str
@@ -63,6 +74,11 @@ def beat_envelope(ctx: RenderContext) -> float:
         level = base + (1.0 - base) * rise
     else:
         level = math.exp(-cfg.beat_decay * phase)
+
+    # Acento del downbeat: el "1" pega mas fuerte que el resto. Es lo que
+    # convierte una sucesion de destellos iguales en algo con metrica.
+    if ctx.bar_locked and ctx.beat_in_bar != 0:
+        level *= 1.0 - cfg.downbeat_accent
 
     return cfg.beat_floor + (1.0 - cfg.beat_floor) * level
 

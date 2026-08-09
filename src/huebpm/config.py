@@ -94,6 +94,16 @@ class AnalysisConfig:
     silence_rms: float = 1e-4
     silence_timeout: float = 2.0
 
+    beats_per_bar: int = 4
+    beats_per_phrase: int = 16
+    downbeat_decay: float = 0.92
+    """Decaimiento del histograma de compas. Bajo = se readapta rapido a un
+    cambio de seccion pero es mas inestable."""
+    downbeat_min_confidence: float = 0.30
+    """Calibrado con señal sintetica: un patron sin acento pero con bombo cada
+    dos tiempos ya da ~0.22, asi que un umbral por debajo de eso engancharia a
+    una ambiguedad de medio compas. Hace falta ~2x de acento real para pasar."""
+
 
 @dataclass
 class RenderConfig:
@@ -132,6 +142,19 @@ class EffectsConfig:
     idle_brightness: float = 0.07
     """Estado en reposo cuando no suena nada: tenue y fijo, nunca apagado."""
 
+    downbeat_accent: float = 0.35
+    """Cuanto mas brillante es el "1" del compas que los demas tiempos.
+
+    A 0 todos los beats pesan igual, que es lo que hacia que el efecto
+    pareciera sincronizado pero no musical."""
+    phrase_palette: tuple[tuple[float, float, float], ...] = (
+        (1.0, 0.15, 0.05),
+        (1.0, 0.55, 0.0),
+        (0.15, 0.9, 0.4),
+        (0.2, 0.35, 1.0),
+    )
+    """Un color por compas dentro de la frase, para el modo `bars`."""
+
     saturation_boost: float = 1.15
     """Las luces Hue lavan los colores; un poco de saturacion extra compensa."""
 
@@ -157,6 +180,8 @@ def _apply(obj: Any, data: dict | None) -> Any:
             value = tuple((int(m), float(w)) for m, w in value)
         elif key.endswith("_color"):
             value = tuple(float(x) for x in value)
+        elif key == "phrase_palette":
+            value = tuple(tuple(float(x) for x in c) for c in value)
         setattr(obj, key, value)
     return obj
 

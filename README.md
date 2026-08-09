@@ -57,7 +57,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe run.py sync --dry-run --mode beat_flash
 ```
 
-Modos: `combo` (por defecto), `beat_flash`, `spectrum`.
+Modos: `combo` (por defecto), `bars`, `beat_flash`, `spectrum`.
 
 ### Bridge (una sola vez)
 
@@ -103,6 +103,7 @@ audio/     capture.py      loopback WASAPI -> ring buffer (hilo de PortAudio)
 analysis/  odf.py          STFT -> flujo espectral + energia por bandas
            tempo.py        autocorrelacion -> BPM y fase
            beatclock.py    PLL de fase, prediccion del proximo beat
+           downbeat.py     histograma de energia -> cual beat es el "1"
            bands.py        normalizacion adaptativa graves/medios/agudos
 
 hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
@@ -110,7 +111,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | beat_flash | spectrum | idle
+           modes.py        combo | bars | beat_flash | spectrum | idle
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico
@@ -198,6 +199,12 @@ Cosas que costaron encontrar y conviene no deshacer sin medir:
   frames) actuaba como un notch justo en la frecuencia del pulso a 174 BPM.
 - **ODF de graves para el tempo.** Los hi-hats marcan corcheas y llevan al
   detector a la octava de arriba; bombo y caja marcan el pulso real.
+- **El compas se mide con energia cruda de graves, no con la ODF.** La ODF
+  esta log-comprimida (`log1p(1000*|X|)`), que es justo lo que la hace
+  invariante al volumen y permite seguir el tempo con la musica bajita. Esa
+  misma compresion aplasta la diferencia entre un bombo normal y uno acentuado.
+  Y se toma el **pico** de la banda, no la suma: el acento es un transitorio y
+  sumarlo sobre el beat entero lo diluye entre el bajo sostenido.
 - **La confianza es un z-score robusto, no la autocorrelacion cruda.** La
   correlacion absoluta depende del material: un click sintetico da 0.8 y una
   pista producida da 0.3 con el pulso igual de claro, porque el sidechain y la
@@ -255,6 +262,15 @@ La envolvente se calcula de la *fase* del beat, no de eventos "hubo un beat".
 Por eso puede subir el brillo durante la fraccion `beat_attack` ANTERIOR al
 golpe. Combinado con `latency_compensation_ms`, el comando sale del PC antes
 del beat y la luz enciende justo en el.
+
+`bars` va un paso mas alla y usa el compas: la paleta avanza en el "1" de cada
+compas y vuelve a empezar cada frase, asi que se ve el 4x4 de la musica en vez
+de un parpadeo uniforme. Ademas, en todos los modos el downbeat pega mas fuerte
+que el resto de tiempos (`downbeat_accent`).
+
+Cuando no hay evidencia suficiente de donde cae el compas, los efectos degradan
+a tratar todos los beats por igual. Acentuar un tiempo al azar se ve peor que
+no acentuar ninguno.
 
 Un efecto es una funcion pura de `RenderContext` a colores: no guarda estado,
 no sabe de audio ni de DTLS. Anadir un modo es anadir una clase a

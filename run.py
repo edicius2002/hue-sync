@@ -78,7 +78,7 @@ def main() -> int:
 
     p_sync = sub.add_parser("sync", help="sincroniza las luces con el audio")
     p_sync.add_argument("--duration", type=float, default=None)
-    p_sync.add_argument("--mode", default=None, help="combo | beat_flash | spectrum")
+    p_sync.add_argument("--mode", default=None, help="combo | bars | beat_flash | spectrum")
     p_sync.add_argument("--area", default=None)
     p_sync.add_argument("--dry-run", action="store_true", help="sin bridge, solo consola")
 

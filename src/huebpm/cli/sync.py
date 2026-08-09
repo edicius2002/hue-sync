@@ -98,13 +98,7 @@ def run_sync(
                 # El efecto se evalua en el instante en que la luz mostrara
                 # esto, no en el que se calcula.
                 lookahead = now + comp
-                ctx = RenderContext(
-                    now=lookahead,
-                    state=state,
-                    clock=engine.clock,
-                    channel_count=channel_count,
-                    cfg=cfg.effects,
-                )
+                ctx = _context(engine, state, lookahead, channel_count, cfg)
                 active = idle_effect if state.silent else effect
                 channels = active.render(ctx)
 
@@ -133,6 +127,31 @@ def run_sync(
     print(f"Jitter del loop: media {limiter.jitter.mean_ms:.2f} ms, "
           f"max {limiter.jitter.max_ms:.2f} ms")
     return 0
+
+
+def _context(engine, state, now, channel_count, cfg) -> RenderContext:  # noqa: ANN001
+    """Construye el contexto del efecto, incluyendo la metrica del compas.
+
+    Se calcula aqui y no dentro de cada efecto para que los efectos sigan
+    siendo funciones puras de datos ya resueltos.
+    """
+    bars, clock = engine.bars, engine.clock
+    index = clock.beat_index(now)
+    if index is None or not bars.locked:
+        return RenderContext(
+            now=now, state=state, clock=clock,
+            channel_count=channel_count, cfg=cfg.effects,
+        )
+
+    beat_phase = clock.phase(now)
+    return RenderContext(
+        now=now, state=state, clock=clock,
+        channel_count=channel_count, cfg=cfg.effects,
+        bar_phase=bars.bar_phase(index, beat_phase),
+        phrase_phase=bars.phrase_phase(index, beat_phase),
+        beat_in_bar=bars.beat_in_bar(index),
+        bar_locked=True,
+    )
 
 
 def _status(state, engine, channels, sent, failed, limiter, mode) -> None:  # noqa: ANN001

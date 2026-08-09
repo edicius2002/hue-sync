@@ -41,6 +41,10 @@ class BeatClock:
 
         self.period: float | None = None
         self.confidence = 0.0
+        self.generation = 0
+        """Sube cada vez que el reloj se reengancha desde cero o salta de
+        octava. Quien acumule estadisticas por indice de beat (el compas) tiene
+        que descartarlas: los indices anteriores ya no significan lo mismo."""
         self._anchor = 0.0
         self._last_update = 0.0
         self._octave_votes = 0
@@ -63,6 +67,7 @@ class BeatClock:
         self.confidence = 0.0
         self._octave_votes = 0
         self._last_poll = None
+        self.generation += 1
 
     def update(self, est: TempoEstimate, now: float) -> None:
         if est.confidence < self.min_confidence:
@@ -74,6 +79,7 @@ class BeatClock:
         if self.period is None:
             self.period = est.period
             self._anchor = est.last_beat_time
+            self.generation += 1
             return
 
         # Salto de octava: no se acepta a la primera, hace falta que varias
@@ -90,6 +96,7 @@ class BeatClock:
                 self.period = est.period
                 self._anchor = est.last_beat_time
                 self._octave_votes = 0
+                self.generation += 1
             return
 
         self._octave_votes = 0
@@ -117,6 +124,19 @@ class BeatClock:
             return None
         k = math.floor((now - self._anchor) / self.period) + 1
         return (self._anchor + k * self.period) - now
+
+    def beat_index(self, now: float) -> int | None:
+        """Numero de beat desde el ancla. Es la referencia estable que usa el
+        seguimiento de compas para acumular energia por posicion."""
+        if self.period is None:
+            return None
+        return math.floor((now - self._anchor) / self.period)
+
+    def beat_time(self, index: int) -> float | None:
+        """Instante (tiempo de pared) del beat numero `index`."""
+        if self.period is None:
+            return None
+        return self._anchor + index * self.period
 
     def phase(self, now: float) -> float:
         """Posicion dentro del beat: 0.0 justo en el beat, ->1.0 antes del siguiente."""
