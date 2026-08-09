@@ -154,6 +154,11 @@ class EntertainmentSession:
         try:
             self.backend.close()
             self.rest.set_streaming(self.area_id, True)
+            # En cuanto se le pide al bridge que abra la sesion hay que
+            # recordarlo, o `stop()` se saltara la liberacion y el area se
+            # quedara ocupada indefinidamente. Pasa cuando la reconexion es la
+            # primera que reclama el area, sin un `start()` previo.
+            self._streaming_requested = True
             time.sleep(self.start_delay)
             self.backend.connect(
                 self.bridge_ip, self.username, self.clientkey, self.area_id
