@@ -191,3 +191,23 @@ def test_el_modo_harmony_devuelve_rgb_valido():
         for h in (0.0, 0.25, 0.5, 0.99):
             for c in efecto.render(contexto(tonality=t, hue=h))[0]:
                 assert 0.0 <= c <= 1.0
+
+
+def test_harmony_pulsa_menos_que_los_demas_modos():
+    """La razon de ser del modo: si la luz parpadea igual de fuerte que en
+    `combo`, el pulso domina la percepcion y el color no se ve. Medido en la
+    practica, los dos modos parecian identicos."""
+    ctx = contexto(tonality=0.5)
+    combo = get_effect("combo").render(ctx)[0]
+    harmony = get_effect("harmony").render(ctx)[0]
+    assert max(harmony) > max(combo), "harmony debe mantener mas brillo entre golpes"
+
+
+def test_la_conversion_a_16_bits_esquiva_la_rama_rota_de_la_libreria():
+    """`hue-entertainment` trata los valores de 0 a 255 como byte directo en vez
+    de desplazarlos, asi que un 0.4% de brillo saldria a brillo maximo."""
+    from huebpm.hue.backends import _to_u16
+
+    for v in (0.0005, 0.001, 0.002, 0.003, 0.0039):
+        u = _to_u16(v)
+        assert u == 0 or u > 255, f"{v} -> {u} cae en la zona rota"

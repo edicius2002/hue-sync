@@ -128,6 +128,10 @@ effects:
   harmony_min_tonality: 0.02
   harmony_full_tonality: 0.08
   harmony_saturation: 0.9
+  # Cuanto modula el beat el brillo en `harmony`. Mucho mas bajo que en los
+  # otros modos a proposito: si la luz pulsa igual de fuerte, el pulso domina y
+  # el color pasa desapercibido, o sea que `harmony` y `combo` se ven iguales.
+  harmony_beat_depth: 0.35
 
   saturation_boost: 1.15   # las luces Hue lavan los tonos mezclados
 

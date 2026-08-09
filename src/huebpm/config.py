@@ -188,6 +188,14 @@ class EffectsConfig:
     """Por debajo de esto no hay armonia que seguir (percusion, ruido) y el
     modo `harmony` cae a color espectral en vez de inventarse un tono."""
     harmony_saturation: float = 0.9
+    harmony_beat_depth: float = 0.35
+    """Cuanto modula el beat el brillo en el modo `harmony`, de 0 a 1.
+
+    Mucho mas bajo que en los otros modos y esa es la razon de ser del modo. Si
+    la luz pulsa igual de fuerte, el pulso domina la percepcion y el color pasa
+    desapercibido: `harmony` y `combo` se ven identicos aunque el color sea
+    distinto. Bajando la modulacion, la luz se mantiene encendida y lo que
+    cambia es el tono, que es justo lo que este modo tiene que ensenar."""
 
     saturation_boost: float = 1.15
     """Las luces Hue lavan los colores; un poco de saturacion extra compensa."""

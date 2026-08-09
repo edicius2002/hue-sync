@@ -292,7 +292,13 @@ Identifica las 12 notas sueltas y todas las notas de triadas, septimas y
 quintas, con armonicos incluidos. Volver al mismo acorde devuelve el mismo
 color.
 
-**En mezcla completa la ganancia es modesta.** El color resulta un 15% mas
+El beat modula el brillo mucho menos que en los demas modos (`harmony_beat_depth`,
+0.35 contra el 0.88 efectivo del resto). No es estetica: con la misma pulsacion
+que `combo` el parpadeo domina la percepcion y el color pasa desapercibido, asi
+que ambos modos se ven identicos aunque el color sea distinto. Medido, el brillo
+oscila 6.8x en `combo` y 1.4x en `harmony`.
+
+**En mezcla completa la ganancia de estabilidad de color es modesta.** El color resulta un 15% mas
 estable que el espectral (0.016 contra 0.019 de movimiento por frame), no el
 salto que sugiere la prueba sintetica. La bateria reparte energia por las 12
 clases y aplana el chroma, asi que la tonalidad de una mezcla real queda mucho

@@ -215,9 +215,12 @@ def test_keepalive_reenvia_el_ultimo_frame(session, backend, monkeypatch):
 
 
 @pytest.mark.parametrize("valor,esperado", [
-    (-1.0, 0), (0.0, 0), (0.5, 32767), (1.0, 65535), (2.0, 65535),
+    (-1.0, 0), (0.0, 0), (0.5, 32512), (1.0, 65535), (2.0, 65535),
 ])
 def test_conversion_a_16_bits_satura(valor, esperado):
+    """El medio da 32512 y no 32767 porque se cuantiza a 8 bits antes de
+    desplazar. La diferencia es del 0.8% y no se puede percibir: el bridge
+    recibe 8 bits por componente de todas formas."""
     from huebpm.hue.backends import _to_u16
 
     assert _to_u16(valor) == esperado

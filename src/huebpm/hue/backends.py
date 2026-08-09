@@ -114,10 +114,23 @@ def make_backend(name: str = DEFAULT_BACKEND) -> StreamBackend:
 
 
 def _to_u16(value: float) -> int:
-    """Los canales van a 16 bits: el bridge interpola entre paquetes y esa
-    resolucion extra evita escalones visibles en fundidos lentos."""
+    """Convierte 0.0-1.0 al entero de 16 bits que espera el canal.
+
+    Se cuantiza a 8 bits y se desplaza, en vez de escalar directo a 65535, para
+    esquivar un fallo de conversion de `hue-entertainment`:
+
+        r = min(255, cmd.red >> 8) if cmd.red > 255 else cmd.red
+
+    Los valores por encima de 255 se desplazan a 8 bits, pero los de 0 a 255
+    pasan tal cual como byte. Eso hace que un 255 de 16 bits, que deberia ser
+    un 0.4% de brillo, salga a brillo MAXIMO. Cuantizando primero, ningun valor
+    aterriza nunca en ese rango salvo el cero, que si se traduce bien.
+
+    Hoy no nos afecta porque `beat_floor` mantiene los colores por encima del
+    umbral, pero bastaria bajarlo a cero para pisar la mina.
+    """
     if value <= 0.0:
         return 0
     if value >= 1.0:
         return 0xFFFF
-    return int(value * 0xFFFF)
+    return int(value * 255) << 8

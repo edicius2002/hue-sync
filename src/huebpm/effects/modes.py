@@ -97,13 +97,20 @@ class HarmonyEffect:
     Cuando no hay contenido tonal —percusion sola, ruido— cae a color
     espectral. Inventarse un tono ahi produciria un color aleatorio que salta
     en cada golpe, que es peor que no seguir la armonia.
+
+    El beat modula el brillo mucho menos que en los demas modos, y no es un
+    detalle estetico: con la misma pulsacion que `combo`, el parpadeo domina la
+    percepcion y el color pasa desapercibido, asi que los dos modos se ven
+    identicos aunque el color sea distinto.
     """
 
     name = "harmony"
 
     def render(self, ctx: RenderContext) -> Channels:
         color = blend(spectrum_color(ctx), harmony_color(ctx), harmony_mix(ctx))
-        return fill(scale(color, beat_envelope(ctx)), ctx.channel_count)
+        profundidad = ctx.cfg.harmony_beat_depth
+        brillo = 1.0 - profundidad + profundidad * beat_envelope(ctx)
+        return fill(scale(color, brillo), ctx.channel_count)
 
 
 EFFECTS = {
