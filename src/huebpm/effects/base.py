@@ -41,6 +41,9 @@ class RenderContext:
     beat_in_bar: int = 0
     """Que tiempo del compas es este. 0 es el "1"."""
     bar_locked: bool = False
+    render_fps: float = 50.0
+    """Necesario para acotar la pendiente del brillo: cuanto avanza la fase
+    entre dos frames depende del tempo, asi que la suavidad percibida tambien."""
     """False mientras no haya evidencia suficiente de donde cae el compas. Los
     efectos deben degradar a tratar todos los beats por igual, no inventarse
     un downbeat que no esta."""
@@ -99,6 +102,28 @@ def smooth_envelope(ctx: RenderContext) -> float:
     if not ctx.clock.locked:
         return 1.0
     return 0.5 + 0.5 * math.cos(2.0 * math.pi * ctx.clock.phase(ctx.now))
+
+
+def gentle_brightness(ctx: RenderContext, depth: float, max_step: float) -> float:
+    """Brillo sinusoidal con la pendiente acotada, independiente del tempo.
+
+    La suavidad percibida no depende de cuanto varia el brillo sino de cuanto
+    varia **entre frames consecutivos**, y eso escala con el tempo: la fase
+    avanza (BPM/60)/fps por frame, asi que un ajuste comodo a 120 BPM parpadea
+    a 174. Aqui se recorta la profundidad para que el salto maximo nunca supere
+    `max_step`, lo que da la misma sensacion a cualquier tempo.
+
+    La pendiente maxima de 0.5+0.5*cos(2*pi*f) es pi, en el contratiempo.
+    """
+    if depth <= 0.0 or not ctx.clock.locked:
+        return 1.0
+
+    periodo = ctx.clock.period or 0.5
+    avance_de_fase = 1.0 / (periodo * ctx.render_fps)
+    limite = max_step / max(1e-9, math.pi * avance_de_fase)
+    depth = min(depth, limite)
+
+    return 1.0 - depth + depth * smooth_envelope(ctx)
 
 
 def spectrum_color(ctx: RenderContext) -> Color:

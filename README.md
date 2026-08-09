@@ -302,9 +302,16 @@ aunque el color sea distinto.
 **Envolvente sinusoidal en vez de pico.** Bajar la profundidad no basta: los
 flancos agudos de la envolvente normal se siguen leyendo como destellos. Medido
 a 120 BPM y 50 fps, el brillo saltaba 0.150 por frame con la envolvente de pico
-y 0.031 con el coseno, y eso con MAS rango de brillo. Por encima de unos 0.03
-por frame el ojo lo percibe como parpadeo: lo que importa es la forma, no la
-profundidad.
+y 0.031 con el coseno, y eso con MAS rango de brillo. Lo que importa es la
+forma, no la profundidad.
+
+**Brillo constante por defecto, y pendiente acotada por tempo.** Ni siquiera el
+coseno suave acaba de funcionar: cualquier bajada entre cambios de color se
+percibe como un apagado en vez de como parte de la musica, asi que
+`harmony_beat_depth` viene a cero y solo cambia el color. Si se le sube, la
+profundidad se recorta sola para que el salto por frame no pase de
+`harmony_max_step`. Hace falta porque la fase avanza (BPM/60)/fps por frame:
+un ajuste comodo a 120 BPM parpadea a 174.
 
 **En mezcla completa la ganancia de estabilidad de color es modesta.** El color resulta un 15% mas
 estable que el espectral (0.016 contra 0.019 de movimiento por frame), no el

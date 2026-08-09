@@ -188,16 +188,21 @@ class EffectsConfig:
     """Por debajo de esto no hay armonia que seguir (percusion, ruido) y el
     modo `harmony` cae a color espectral en vez de inventarse un tono."""
     harmony_saturation: float = 0.9
-    harmony_beat_depth: float = 0.25
-    """Cuanto modula el beat el brillo en el modo `harmony`, de 0 a 1.
+    harmony_beat_depth: float = 0.0
+    """Cuanto modula el beat el brillo en `harmony`, de 0 a 1.
 
-    Mucho mas bajo que en los otros modos y esa es la razon de ser del modo. Si
-    la luz pulsa igual de fuerte, el pulso domina la percepcion y el color pasa
-    desapercibido: `harmony` y `combo` se ven identicos aunque el color sea
-    distinto.
+    Cero por defecto: brillo constante y solo cambia el color. Es la separacion
+    limpia entre modos, `combo` lleva el ritmo y `harmony` la armonia. Cualquier
+    bajada de brillo entre cambios de color se percibe como un apagado, no como
+    parte de la musica.
 
-    Sube esto si lo quieres mas ritmico. Pasado 0.4 vuelve a percibirse como
-    parpadeo aunque la envolvente sea sinusoidal."""
+    Subelo si lo quieres con pulso; la pendiente se acota sola."""
+    harmony_max_step: float = 0.03
+    """Cambio maximo de brillo entre frames de render.
+
+    Acotar esto y no la profundidad es lo que hace que la sensacion sea la
+    misma a cualquier tempo: la fase avanza (BPM/60)/fps por frame, asi que una
+    profundidad comoda a 120 BPM parpadea a 174."""
 
     saturation_boost: float = 1.15
     """Las luces Hue lavan los colores; un poco de saturacion extra compensa."""

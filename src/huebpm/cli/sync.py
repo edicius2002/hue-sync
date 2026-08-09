@@ -142,6 +142,7 @@ def _context(engine, state, now, channel_count, cfg) -> RenderContext:  # noqa: 
         return RenderContext(
             now=now, state=state, clock=clock,
             channel_count=channel_count, cfg=cfg.effects,
+            render_fps=cfg.render.fps,
         )
 
     beat_phase = clock.phase(now)
@@ -152,6 +153,7 @@ def _context(engine, state, now, channel_count, cfg) -> RenderContext:  # noqa: 
         phrase_phase=bars.phrase_phase(index, beat_phase),
         beat_in_bar=bars.beat_in_bar(index),
         bar_locked=True,
+        render_fps=cfg.render.fps,
     )
 
 

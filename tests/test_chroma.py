@@ -237,3 +237,52 @@ def test_la_envolvente_de_harmony_es_fluida():
         brillos.append(max(efecto.render(c)[0]))
     saltos = np.abs(np.diff(brillos))
     assert saltos.max() < 0.035, f"salta {saltos.max():.3f} por frame, parpadea"
+
+
+@pytest.mark.parametrize("bpm", [76.0, 120.0, 174.0])
+def test_el_brillo_de_harmony_es_constante_por_defecto(bpm):
+    """Cualquier bajada entre cambios de color se percibe como un apagado, no
+    como parte de la musica."""
+    from huebpm.analysis.tempo import TempoEstimate
+    from huebpm.effects.modes import get_effect
+
+    ctx = contexto(tonality=0.5)
+    ctx.clock.update(
+        TempoEstimate(bpm=bpm, period=60 / bpm, last_beat_time=0.0, confidence=1.0), 0.0
+    )
+    efecto = get_effect("harmony")
+    brillos = {
+        round(max(efecto.render(RenderContext(
+            now=i / 50.0, state=ctx.state, clock=ctx.clock,
+            channel_count=1, cfg=ctx.cfg, render_fps=50.0,
+        ))[0]), 6)
+        for i in range(int(50 * 60 / bpm) + 1)
+    }
+    assert len(brillos) == 1
+
+
+@pytest.mark.parametrize("bpm", [76.0, 120.0, 174.0])
+def test_la_pendiente_se_acota_igual_a_cualquier_tempo(bpm):
+    """La fase avanza (BPM/60)/fps por frame, asi que una profundidad comoda a
+    120 BPM parpadearia a 174. Se recorta la profundidad, no el resultado."""
+    import numpy as np
+
+    from huebpm.analysis.tempo import TempoEstimate
+    from huebpm.effects.modes import get_effect
+
+    cfg = EffectsConfig()
+    cfg.harmony_beat_depth = 0.9  # exagerado a proposito
+    ctx = contexto(tonality=0.5, cfg=cfg)
+    ctx.clock.update(
+        TempoEstimate(bpm=bpm, period=60 / bpm, last_beat_time=0.0, confidence=1.0), 0.0
+    )
+    efecto = get_effect("harmony")
+    brillos = [
+        max(efecto.render(RenderContext(
+            now=i / 50.0, state=ctx.state, clock=ctx.clock,
+            channel_count=1, cfg=cfg, render_fps=50.0,
+        ))[0])
+        for i in range(int(50 * 60 / bpm) + 1)
+    ]
+    saltos = np.abs(np.diff(brillos))
+    assert saltos.max() <= cfg.harmony_max_step + 0.002
