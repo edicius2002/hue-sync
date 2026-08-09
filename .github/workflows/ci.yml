@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # Windows y no Linux a proposito: PyAudioWPatch solo publica wheels para
+    # Windows, y la captura loopback WASAPI es la unica plataforma soportada.
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Tests
+        run: pytest
+
+      - name: Self-test del detector de BPM
+        run: python run.py selftest --duration 20

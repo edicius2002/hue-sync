@@ -29,11 +29,17 @@ class RingBuffer:
             return self._total_written
 
     def write(self, data: np.ndarray) -> None:
-        n = len(data)
-        if n >= self._capacity:
-            # Bloque mas grande que el buffer: nos quedamos con la cola.
+        received = len(data)
+        if received == 0:
+            return
+        if received >= self._capacity:
+            # Bloque mas grande que el buffer: solo cabe la cola. Pero el
+            # contador global tiene que avanzar por TODAS las muestras
+            # recibidas, no por las que se guardan: es la referencia temporal
+            # de todo el analisis, y si se queda corto los timestamps se
+            # desfasan de forma permanente.
             data = data[-self._capacity :]
-            n = self._capacity
+        n = len(data)
 
         with self._lock:
             end = self._write_pos + n
@@ -44,7 +50,7 @@ class RingBuffer:
                 self._buf[self._write_pos :] = data[:split]
                 self._buf[: n - split] = data[split:]
             self._write_pos = end % self._capacity
-            self._total_written += n
+            self._total_written += received
 
     def read_since(self, sample_index: int, max_samples: int) -> tuple[np.ndarray, int]:
         """Devuelve las muestras desde `sample_index` y el nuevo indice.

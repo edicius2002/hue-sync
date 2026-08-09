@@ -15,6 +15,7 @@ reenvia el ClientHello con la cookie y engancha.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Protocol
 
 Channels = dict[int, tuple[float, float, float]]
@@ -84,10 +85,10 @@ class PurePythonBackend:
 
     def close(self) -> None:
         if self._streamer is not None:
-            try:
+            # Cerrando: si el socket ya estaba muerto da igual, y propagar
+            # aqui impediria mandar el `action: stop` que viene despues.
+            with contextlib.suppress(Exception):
                 self._streamer.disconnect()
-            except Exception:  # noqa: BLE001
-                pass
             self._streamer = None
 
     @property
