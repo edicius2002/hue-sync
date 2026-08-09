@@ -184,3 +184,20 @@ def test_el_acento_no_saca_el_color_de_rango():
     for modo in ("combo", "beat_flash"):
         for c in get_effect(modo).render(contexto(0.0))[0]:
             assert 0.0 <= c <= 1.0
+
+
+@pytest.mark.parametrize("modo", ["combo", "beat_flash", "bars"])
+def test_todos_los_modos_ritmicos_reaccionan_al_onset(modo):
+    """Regresion: `combo`, que es el modo por defecto, se quedo sin el codigo
+    de onsets porque una sustitucion de texto no encajo y fallo en silencio. El
+    PR salio con la feature invisible en el unico modo que la gente usa."""
+    from huebpm.effects.modes import get_effect
+
+    efecto = get_effect(modo)
+    con = efecto.render(contexto(0.0))[0]
+    sin_cfg = EffectsConfig()
+    sin_cfg.onset_accent = 0.0
+    sin_cfg.onset_flash = 0.0
+    sin = efecto.render(contexto(0.0, cfg=sin_cfg))[0]
+    distancia = sum((a - b) ** 2 for a, b in zip(con, sin, strict=True)) ** 0.5
+    assert distancia > 0.1, f"{modo} no reacciona a los onsets"

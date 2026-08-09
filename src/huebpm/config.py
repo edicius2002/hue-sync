@@ -199,14 +199,21 @@ class EffectsConfig:
     )
     """Un color por compas dentro de la frase, para el modo `bars`."""
 
-    onset_accent: float = 0.5
+    onset_accent: float = 0.9
     """Golpe de brillo extra en los onsets fuera de tiempo, de 0 a 1.
 
-    Es aditivo sobre la envolvente del beat, no la sustituye: lo que aporta son
-    los redobles, stabs y palmas que no caen en el pulso y que hasta ahora la
-    luz se comia enteros."""
-    onset_decay: float = 0.09
-    """Constante de caida del acento, en segundos."""
+    Es aditivo sobre la envolvente del beat: lo que aporta son los redobles,
+    stabs y palmas que no caen en el pulso y que la luz se comia enteros."""
+    onset_flash: float = 0.75
+    """Cuanto blanquea el color el golpe, de 0 a 1.
+
+    Es lo que de verdad hace visible un onset con una sola luz. Subir solo el
+    brillo apenas se percibe: cerca de un beat la envolvente ya esta alta y el
+    acento se satura sin cambiar nada. Un cambio de color se lee como un
+    impacto distinto del pulso aunque el brillo apenas se mueva."""
+    onset_decay: float = 0.13
+    """Constante de caida del acento, en segundos. Por debajo de ~0.1 el
+    destello dura 4 o 5 frames de render y pasa desapercibido."""
 
     harmony_min_tonality: float = 0.08
     """Por debajo no hay armonia fiable y el color viene del espectro.

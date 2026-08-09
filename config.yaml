@@ -137,8 +137,12 @@ effects:
 
   # Golpe de brillo extra en los onsets fuera de tiempo. Aditivo sobre la
   # envolvente del beat, no la sustituye.
-  onset_accent: 0.5
-  onset_decay: 0.09
+  onset_accent: 0.9
+  # Cuanto blanquea el color el golpe. Es lo que de verdad lo hace visible con
+  # una sola luz: subir solo el brillo apenas se percibe porque cerca de un
+  # beat la envolvente ya esta alta y el acento se satura sin cambiar nada.
+  onset_flash: 0.75
+  onset_decay: 0.13
 
   # Modo `harmony`: por debajo de min no hay armonia que seguir y el color sale
   # del espectro; por encima de full es armonia pura. Entre medias se mezcla

@@ -302,6 +302,19 @@ Sobre musica real detecta 3.7 golpes/s en un patron con hi-hats en corcheas a
 El umbral es el parametro que gobierna los falsos positivos: a 1.0 el ruido
 blanco dispara tres veces mas golpes que los que hay, a 3.5 ninguno.
 
+**El acento cambia el color, no solo el brillo.** Con una sola luz el brillo es
+un canal pobre para senalar un golpe: cerca de un beat la envolvente ya esta
+arriba y sumar acento se satura sin que se note nada. Blanqueando el color
+momentaneamente el golpe se lee como un impacto distinto del pulso. Medido
+sobre musica real, el acento esta activo el 42% del tiempo y en esos instantes
+el color se desplaza 0.158 de media en distancia RGB y el brillo sube un 71%.
+
+**El acento se evalua sin compensacion de latencia**, al reves que todo lo
+demas. El beat se predice; un golpe suelto no se puede predecir, cuando se
+detecta ya ocurrio. Mirandolo en el futuro llegaria ya apagado: con 130 ms de
+caida y 120 ms de compensacion se perderia mas de la mitad del golpe antes de
+mostrarlo.
+
 ## Que rinde el modo `harmony`
 
 El color deja de responder al timbre de la mezcla y responde a que notas

@@ -44,6 +44,12 @@ class RenderContext:
     render_fps: float = 50.0
     """Necesario para acotar la pendiente del brillo: cuanto avanza la fase
     entre dos frames depende del tempo, asi que la suavidad percibida tambien."""
+    now_real: float | None = None
+    """Tiempo de pared SIN compensar, para lo que es reactivo y no predictivo.
+
+    `now` va adelantado por `latency_compensation_ms` porque el reloj de beat
+    predice el futuro. Un onset no se puede predecir: cuando se detecta, ya
+    ocurrio. Evaluarlo en el futuro solo lo muestra ya apagado."""
     """False mientras no haya evidencia suficiente de donde cae el compas. Los
     efectos deben degradar a tratar todos los beats por igual, no inventarse
     un downbeat que no esta."""
@@ -113,11 +119,31 @@ def onset_accent(ctx: RenderContext) -> float:
     """
     if ctx.cfg.onset_accent <= 0.0:
         return 0.0
-    transcurrido = ctx.now - ctx.state.last_onset_time
+    # Sin compensar: el beat se predice, un golpe suelto no. Mirando el futuro
+    # el acento llegaria ya decaido, que es justo lo contrario de lo que hace
+    # falta. Con `onset_decay` de 90 ms y 120 ms de compensacion, se perderia
+    # el 74% del golpe antes de mostrarlo.
+    ahora = ctx.now_real if ctx.now_real is not None else ctx.now
+    transcurrido = ahora - ctx.state.last_onset_time
     if transcurrido < 0.0 or transcurrido > 8.0 * ctx.cfg.onset_decay:
         return 0.0
     caida = math.exp(-transcurrido / max(1e-6, ctx.cfg.onset_decay))
     return ctx.cfg.onset_accent * ctx.state.last_onset_strength * caida
+
+
+def apply_onset_flash(ctx: RenderContext, color: Color) -> Color:
+    """Blanquea el color en proporcion al acento del onset.
+
+    Con una sola luz, el brillo es un canal pobre para senalar un golpe: cerca
+    de un beat la envolvente ya esta arriba y sumar acento se satura sin que se
+    note. El color si esta libre, y un blanqueo momentaneo se lee como un
+    impacto claramente distinto del pulso.
+    """
+    fuerza = onset_accent(ctx)
+    if fuerza <= 0.0 or ctx.cfg.onset_flash <= 0.0:
+        return color
+    mezcla = min(1.0, fuerza * ctx.cfg.onset_flash / max(1e-6, ctx.cfg.onset_accent))
+    return blend(color, (1.0, 1.0, 1.0), mezcla)
 
 
 def gentle_brightness(ctx: RenderContext, depth: float, max_step: float) -> float:

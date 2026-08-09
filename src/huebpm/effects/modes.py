@@ -6,6 +6,7 @@ from __future__ import annotations
 from .base import (
     Channels,
     RenderContext,
+    apply_onset_flash,
     beat_envelope,
     blend,
     fill,
@@ -37,7 +38,8 @@ class BeatFlashEffect:
 
     def render(self, ctx: RenderContext) -> Channels:
         brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
-        return fill(scale(ctx.cfg.idle_color, brillo), ctx.channel_count)
+        color = apply_onset_flash(ctx, ctx.cfg.idle_color)
+        return fill(scale(color, brillo), ctx.channel_count)
 
 
 class SpectrumEffect:
@@ -62,9 +64,9 @@ class ComboEffect:
     name = "combo"
 
     def render(self, ctx: RenderContext) -> Channels:
-        return fill(
-            scale(spectrum_color(ctx), beat_envelope(ctx)), ctx.channel_count
-        )
+        brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
+        color = apply_onset_flash(ctx, spectrum_color(ctx))
+        return fill(scale(color, brillo), ctx.channel_count)
 
 
 class BarsEffect:
@@ -80,13 +82,19 @@ class BarsEffect:
     name = "bars"
 
     def render(self, ctx: RenderContext) -> Channels:
-        if not ctx.bar_locked:
-            return fill(scale(spectrum_color(ctx), beat_envelope(ctx)), ctx.channel_count)
+        if ctx.bar_locked:
+            paleta = ctx.cfg.phrase_palette
+            compas = int(ctx.phrase_phase * len(paleta)) % len(paleta)
+            base = saturate(paleta[compas], ctx.cfg.saturation_boost)
+        else:
+            base = spectrum_color(ctx)
 
-        paleta = ctx.cfg.phrase_palette
-        compas = int(ctx.phrase_phase * len(paleta)) % len(paleta)
-        color = saturate(paleta[compas], ctx.cfg.saturation_boost)
-        return fill(scale(color, beat_envelope(ctx)), ctx.channel_count)
+        # El acento va fuera del if a proposito: el camino de respaldo se
+        # quedaba sin onsets, que es exactamente el fallo que dejo `combo`
+        # sin la feature entera.
+        color = apply_onset_flash(ctx, base)
+        brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
+        return fill(scale(color, brillo), ctx.channel_count)
 
 
 class HarmonyEffect:
