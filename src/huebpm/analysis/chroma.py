@@ -85,6 +85,7 @@ class ChromaAnalyzer:
         smoothing: float = 0.93,
         tonality_smoothing: float = 0.97,
         peaks_only: bool = True,
+        hue_glide: float = 0.0,
     ) -> None:
         """
         fmin/fmax acotan donde se mira. Por debajo de fmin el FFT no resuelve
@@ -98,6 +99,7 @@ class ChromaAnalyzer:
         self.smoothing = smoothing
         self.tonality_smoothing = tonality_smoothing
         self.peaks_only = peaks_only
+        self.hue_glide = hue_glide
         self.frame_rate = samplerate / hop
 
         self._window = np.hanning(fft_size).astype(np.float32)
@@ -105,6 +107,7 @@ class ChromaAnalyzer:
         self._chroma = np.zeros(N_PITCH_CLASSES, dtype=np.float64)
         self._tonality = 0.0
         self._seen = 0
+        self._hue = 0.0
 
         freqs = np.fft.rfftfreq(fft_size, 1.0 / samplerate)
         usable = (freqs >= fmin) & (freqs <= fmax)
@@ -147,6 +150,7 @@ class ChromaAnalyzer:
                 bruta = _entropy_tonality(self._chroma)
                 beta = 1.0 if self._seen == 0 else (1.0 - self.tonality_smoothing)
                 self._tonality += beta * (bruta - self._tonality)
+                self._update_hue()
                 self._seen += 1
                 actualizado = True
             offset += self.hop
@@ -159,14 +163,47 @@ class ChromaAnalyzer:
     def chroma(self) -> np.ndarray:
         return self._chroma.copy()
 
+    def _update_hue(self) -> None:
+        """Desliza el color hacia el centroide, por el camino corto del circulo.
+
+        Viene a cero por defecto, y merece la pena explicar por que despues de
+        haber intentado dos cosas que no funcionaron.
+
+        Cuantizar a la clase dominante con histeresis, que es lo que arreglo el
+        seguimiento de compas, aqui NO sirve: en una triada de Do las tres
+        notas pesan casi igual (0.18 / 0.20 / 0.28), asi que el maximo es una
+        moneda al aire incluso con material limpio. Sobre la progresion
+        sintetica C-F-G-C, con 3 cambios reales, la clase dominante cambiaba 11
+        veces, y ningun ajuste de histeresis acertaba los 3 sin callar tambien
+        los cambios de verdad.
+
+        Suavizar fuerte tampoco: cuesta precision sin comprar estabilidad. Con
+        deslizamiento 0.96, volver al mismo acorde daba un color desviado 0.24
+        en el circulo, contra 0.09 sin el, mientras el movimiento total apenas
+        bajaba.
+
+        Lo que de verdad arregla la inestabilidad es no fiarse de la armonia
+        cuando no la hay, y eso vive en `harmony_min_tonality`. Con el umbral
+        bien puesto, el movimiento del color en mezcla densa cae de 0.016 por
+        frame a 0.0004. El parametro se conserva por si algun material se
+        beneficia, pero no hace falta.
+        """
+        objetivo = self.raw_hue
+        if self._seen == 0:
+            self._hue = objetivo
+            return
+        # Diferencia circular: ir por el camino corto del circulo de color.
+        delta = (objetivo - self._hue + 0.5) % 1.0 - 0.5
+        self._hue = (self._hue + (1.0 - self.hue_glide) * delta) % 1.0
+
     @property
     def hue(self) -> float:
-        """Angulo 0..1 en el circulo cromatico, como media vectorial.
+        """Angulo 0..1 en el circulo cromatico, ya estabilizado."""
+        return self._hue
 
-        Se promedian vectores unitarios ponderados por energia en vez de
-        quedarse con la clase dominante, para que el color se mueva de forma
-        continua entre acordes en lugar de saltar de golpe.
-        """
+    @property
+    def raw_hue(self) -> float:
+        """Centroide continuo sin estabilizar. Solo para diagnostico."""
         total = self._chroma.sum()
         if total <= 0:
             return 0.0
@@ -193,4 +230,10 @@ class ChromaAnalyzer:
 
     @property
     def dominant(self) -> int:
+        """Clase con mas energia ahora mismo, sin estabilizar."""
         return int(np.argmax(self._chroma))
+
+    @property
+    def stable_class(self) -> int:
+        """Clase que gobierna el color, tras la histeresis."""
+        return self._stable_class

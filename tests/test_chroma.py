@@ -286,3 +286,15 @@ def test_la_pendiente_se_acota_igual_a_cualquier_tempo(bpm):
     ]
     saltos = np.abs(np.diff(brillos))
     assert saltos.max() <= cfg.harmony_max_step + 0.002
+
+
+def test_el_modo_se_aparta_cuando_no_hay_armonia_fiable():
+    """Regresion sobre lo que se veia en vivo: con el umbral bajo, el color
+    perseguia un centroide que en mezcla densa da 4.84 vueltas al circulo en 22
+    segundos. Ningun tema cambia de acorde a ese ritmo. Medido, una mezcla real
+    da 0.03-0.04 de tonalidad y una progresion tonal limpia 0.37, asi que el
+    umbral separa los dos casos."""
+    cfg = EffectsConfig()
+    assert harmony_mix(contexto(tonality=0.04)) == 0.0, "mezcla densa: no fiarse"
+    assert harmony_mix(contexto(tonality=0.37)) == 1.0, "material tonal: fiarse"
+    assert cfg.harmony_min_tonality > 0.05

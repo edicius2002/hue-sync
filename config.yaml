@@ -125,8 +125,12 @@ effects:
   # Modo `harmony`: por debajo de min no hay armonia que seguir y el color sale
   # del espectro; por encima de full es armonia pura. Entre medias se mezcla
   # progresivamente, porque un corte seco produce un fogonazo al cruzarlo.
-  harmony_min_tonality: 0.02
-  harmony_full_tonality: 0.08
+  # Calibrado sobre material real: una progresion tonal limpia da 0.37 de
+  # tonalidad y una mezcla de pop o house se queda en 0.03-0.04, apenas por
+  # encima del 0.008 del ruido. Por debajo del minimo el modo se aparta y deja
+  # el color espectral, que al menos responde a algo real.
+  harmony_min_tonality: 0.08
+  harmony_full_tonality: 0.20
   harmony_saturation: 0.9
   # Cuanto modula el beat el brillo en `harmony`. Mucho mas bajo que en los
   # otros modos a proposito: si la luz pulsa igual de fuerte, el pulso domina y

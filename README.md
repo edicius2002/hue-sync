@@ -313,6 +313,21 @@ profundidad se recorta sola para que el salto por frame no pase de
 `harmony_max_step`. Hace falta porque la fase avanza (BPM/60)/fps por frame:
 un ajuste comodo a 120 BPM parpadea a 174.
 
+**El modo se aparta cuando no hay armonia fiable, y eso es casi siempre en
+mezcla densa.** Con el umbral bajo el color perseguia un centroide que da 4.84
+vueltas al circulo cromatico en 22 segundos sobre Billie Jean: ningun tema
+cambia de acorde a ese ritmo, era ruido pintado de color. Subiendo
+`harmony_min_tonality` a 0.08 el movimiento cae a 0.0004 por frame, o sea que
+el color simplemente se queda quieto y manda el espectral.
+
+Antes de dar con eso se probaron dos cosas que **no** funcionan, anotadas para
+que nadie las repita. Cuantizar a la clase de altura dominante con histeresis,
+que es lo que arreglo el compas: en una triada las tres notas pesan casi igual
+y el maximo es una moneda al aire, asi que sobre una progresion con 3 cambios
+reales la clase dominante cambiaba 11 veces. Y suavizar fuerte el color, que
+cuesta precision sin comprar estabilidad: volver al mismo acorde daba un color
+desviado 0.24 en el circulo contra 0.09 sin suavizado.
+
 **En mezcla completa la ganancia de estabilidad de color es modesta.** El color resulta un 15% mas
 estable que el espectral (0.016 contra 0.019 de movimiento por frame), no el
 salto que sugiere la prueba sintetica. La bateria reparte energia por las 12

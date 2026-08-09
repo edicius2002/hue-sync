@@ -110,6 +110,9 @@ class AnalysisConfig:
     mezcla entre color armonico y espectral, y si oscila el color va y viene
     entre dos fuentes distintas."""
     chroma_peaks_only: bool = True
+    chroma_hue_glide: float = 0.0
+    """Suavizado extra del color. Cero: medido, no aporta estabilidad sobre lo
+    que ya da el umbral de tonalidad, y cuesta precision en material tonal."""
     """Acumular solo los maximos locales del espectro. En mezcla completa sube
     la separacion entre musica y ruido de 3.9x a 8.8x."""
 
@@ -180,9 +183,15 @@ class EffectsConfig:
     )
     """Un color por compas dentro de la frase, para el modo `bars`."""
 
-    harmony_min_tonality: float = 0.02
-    """Por debajo no hay armonia que seguir y el color viene del espectro."""
-    harmony_full_tonality: float = 0.08
+    harmony_min_tonality: float = 0.08
+    """Por debajo no hay armonia fiable y el color viene del espectro.
+
+    Calibrado sobre material real: una progresion tonal limpia da 0.37 de
+    tonalidad, y una mezcla de pop o house se queda en 0.03-0.04, apenas por
+    encima del 0.008 del ruido blanco. Con el umbral anterior de 0.02 el modo
+    se enganchaba a mezclas densas y pintaba ruido; ahora se aparta y deja el
+    color espectral, que al menos responde a algo real."""
+    harmony_full_tonality: float = 0.20
     """A partir de aqui el color es armonia pura. Entre los dos se mezcla
     progresivamente: un corte seco produce un fogonazo al cruzarlo."""
     """Por debajo de esto no hay armonia que seguir (percusion, ruido) y el

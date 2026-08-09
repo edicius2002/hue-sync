@@ -109,6 +109,7 @@ class AnalysisEngine:
             smoothing=cfg.chroma_smoothing,
             tonality_smoothing=cfg.chroma_tonality_smoothing,
             peaks_only=cfg.chroma_peaks_only,
+            hue_glide=cfg.chroma_hue_glide,
         )
         self.mapper = ClockMapper()
         self.publisher = StatePublisher()
