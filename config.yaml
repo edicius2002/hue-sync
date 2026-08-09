@@ -63,8 +63,22 @@ analysis:
   silence_rms: 0.0001
   silence_timeout: 2.0
 
+  # Seguimiento del compas. La energia de graves de cada beat se acumula en un
+  # histograma modulo beats_per_bar; el maximo es el "1".
+  beats_per_bar: 4
+  beats_per_phrase: 16
+  downbeat_decay: 0.97        # bajo = se readapta rapido pero mas inestable
+  # Calibrado sobre musica REAL, no sintetica. La histeresis no es opcional:
+  # medido en vivo la confianza oscila entre 0.03 y 0.27 sobre el mismo tema,
+  # asi que con un solo umbral la feature entra y sale cada pocos segundos y el
+  # "1" salta de sitio. Con dos umbrales y offset_hold: 13 cambios de posicion
+  # -> 0.
+  downbeat_min_confidence: 0.14     # engancha
+  downbeat_unlock_confidence: 0.07  # suelta
+  downbeat_offset_hold: 8           # compases antes de mover el "1"
+
 effects:
-  mode: combo              # combo | beat_flash | spectrum
+  mode: combo              # combo | bars | beat_flash | spectrum
 
   # El brillo sube durante esta fraccion del beat ANTES del golpe. Es lo que
   # convierte el efecto en algo que se anticipa al ritmo en vez de reaccionar,
@@ -81,6 +95,17 @@ effects:
   # Reposo cuando no suena nada: tenue y fijo, nunca apagado.
   idle_color: [1.0, 0.55, 0.2]
   idle_brightness: 0.07
+
+  # Cuanto mas brillante es el "1" del compas. A 0 todos los beats pesan igual,
+  # que es lo que hacia que el efecto pareciera sincronizado pero no musical.
+  downbeat_accent: 0.35
+
+  # Un color por compas dentro de la frase, para el modo `bars`.
+  phrase_palette:
+    - [1.0, 0.15, 0.05]
+    - [1.0, 0.55, 0.0]
+    - [0.15, 0.9, 0.4]
+    - [0.2, 0.35, 1.0]
 
   saturation_boost: 1.15   # las luces Hue lavan los tonos mezclados
 

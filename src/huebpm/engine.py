@@ -17,6 +17,7 @@ import numpy as np
 
 from .analysis.bands import BandLevels
 from .analysis.beatclock import BeatClock
+from .analysis.downbeat import BarTracker
 from .analysis.odf import SpectralAnalyzer
 from .analysis.tempo import TempoTracker
 from .config import AnalysisConfig
@@ -90,11 +91,22 @@ class AnalysisEngine:
             attack=cfg.band_attack,
             release=cfg.band_release,
         )
+        self.bars = BarTracker(
+            beats_per_bar=cfg.beats_per_bar,
+            beats_per_phrase=cfg.beats_per_phrase,
+            decay=cfg.downbeat_decay,
+            min_confidence=cfg.downbeat_min_confidence,
+            unlock_confidence=cfg.downbeat_unlock_confidence,
+            offset_hold=cfg.downbeat_offset_hold,
+        )
         self.mapper = ClockMapper()
         self.publisher = StatePublisher()
 
         self._last_estimate_t = 0.0
         self._frames_analyzed = 0
+        self._current_beat: int | None = None
+        self._beat_energy = 0.0
+        self._clock_generation = self.clock.generation
         self._silence_since: float | None = None
 
     def feed(self, samples: np.ndarray, start_sample: int, wall_t: float | None = None) -> None:
@@ -121,6 +133,7 @@ class AnalysisEngine:
         self._frames_analyzed += len(frames)
 
         band_levels = self.bands.update(frames[-1].bands, dt)
+        self._accumulate_beat_energy(frames)
 
         stream_now = frames[-1].t
         if silent:
@@ -163,6 +176,45 @@ class AnalysisEngine:
                 frames_analyzed=self._frames_analyzed,
             )
         )
+
+    def _accumulate_beat_energy(self, frames) -> None:  # noqa: ANN001
+        """Mide la fuerza del golpe de graves de cada beat para el BarTracker.
+
+        Dos decisiones que no son obvias:
+
+        **Energia cruda, no flujo espectral.** La ODF esta log-comprimida a
+        proposito (`log1p(1000*|X|)`), que es lo que la hace invariante al
+        volumen y permite seguir el tempo con la musica bajita. Esa misma
+        compresion aplasta la diferencia entre un bombo normal y uno acentuado
+        justo cuando se quiere medirla. Para el compas hace falta la magnitud
+        real de la banda de graves.
+
+        **Pico, no suma.** El acento del downbeat es un transitorio. Sumar
+        sobre todo el beat lo diluye entre el bajo sostenido, que reparte por
+        igual en los cuatro tiempos y no distingue nada.
+        """
+        if self.clock.generation != self._clock_generation:
+            # El reloj se reengancho o salto de octava: los indices de beat ya
+            # no significan lo mismo y el histograma acumulado es basura.
+            self.bars.reset()
+            self._clock_generation = self.clock.generation
+            self._current_beat = None
+            self._beat_energy = 0.0
+
+        if not self.clock.locked:
+            return
+
+        for f in frames:
+            index = self.clock.beat_index(self.mapper.to_wall(f.t))
+            if index is None:
+                continue
+            if self._current_beat is None:
+                self._current_beat = index
+            elif index != self._current_beat:
+                self.bars.push_beat(self._current_beat, self._beat_energy)
+                self._current_beat = index
+                self._beat_energy = 0.0
+            self._beat_energy = max(self._beat_energy, float(f.bands[0]))
 
     @property
     def state(self) -> AudioState:

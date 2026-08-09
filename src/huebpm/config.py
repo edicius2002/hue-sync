@@ -94,6 +94,22 @@ class AnalysisConfig:
     silence_rms: float = 1e-4
     silence_timeout: float = 2.0
 
+    beats_per_bar: int = 4
+    beats_per_phrase: int = 16
+    downbeat_decay: float = 0.97
+    """Decaimiento del histograma de compas. Bajo = se readapta rapido a un
+    cambio de seccion pero es mas inestable."""
+    downbeat_min_confidence: float = 0.14
+    """Umbral para ENGANCHAR. Calibrado sobre musica real, no sintetica."""
+    downbeat_unlock_confidence: float = 0.07
+    """Umbral para SOLTAR. La histeresis no es opcional: medido en vivo, la
+    confianza oscila entre 0.03 y 0.27 sobre el mismo tema, asi que con un
+    solo umbral la feature entra y sale cada pocos segundos."""
+    downbeat_offset_hold: int = 8
+    """Compases que otra posicion tiene que ganar de forma sostenida antes de
+    mover el "1". Un downbeat estable pero desplazado es util; uno correcto a
+    ratos, no."""
+
 
 @dataclass
 class RenderConfig:
@@ -132,6 +148,19 @@ class EffectsConfig:
     idle_brightness: float = 0.07
     """Estado en reposo cuando no suena nada: tenue y fijo, nunca apagado."""
 
+    downbeat_accent: float = 0.35
+    """Cuanto mas brillante es el "1" del compas que los demas tiempos.
+
+    A 0 todos los beats pesan igual, que es lo que hacia que el efecto
+    pareciera sincronizado pero no musical."""
+    phrase_palette: tuple[tuple[float, float, float], ...] = (
+        (1.0, 0.15, 0.05),
+        (1.0, 0.55, 0.0),
+        (0.15, 0.9, 0.4),
+        (0.2, 0.35, 1.0),
+    )
+    """Un color por compas dentro de la frase, para el modo `bars`."""
+
     saturation_boost: float = 1.15
     """Las luces Hue lavan los colores; un poco de saturacion extra compensa."""
 
@@ -157,6 +186,8 @@ def _apply(obj: Any, data: dict | None) -> Any:
             value = tuple((int(m), float(w)) for m, w in value)
         elif key.endswith("_color"):
             value = tuple(float(x) for x in value)
+        elif key == "phrase_palette":
+            value = tuple(tuple(float(x) for x in c) for c in value)
         setattr(obj, key, value)
     return obj
 

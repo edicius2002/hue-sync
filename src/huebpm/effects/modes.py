@@ -8,6 +8,7 @@ from .base import (
     RenderContext,
     beat_envelope,
     fill,
+    saturate,
     scale,
     spectrum_color,
 )
@@ -60,9 +61,31 @@ class ComboEffect:
         )
 
 
+class BarsEffect:
+    """Un color por compas dentro de la frase, brillo del beat.
+
+    Es el modo que hace visible la estructura: la paleta avanza en el "1" de
+    cada compas y vuelve a empezar cada frase, asi que se ve el 4x4 de la
+    musica en vez de un parpadeo uniforme. Sin enganche de compas cae a color
+    espectral, porque rotar una paleta en tiempos arbitrarios se ve peor que
+    no rotarla.
+    """
+
+    name = "bars"
+
+    def render(self, ctx: RenderContext) -> Channels:
+        if not ctx.bar_locked:
+            return fill(scale(spectrum_color(ctx), beat_envelope(ctx)), ctx.channel_count)
+
+        paleta = ctx.cfg.phrase_palette
+        compas = int(ctx.phrase_phase * len(paleta)) % len(paleta)
+        color = saturate(paleta[compas], ctx.cfg.saturation_boost)
+        return fill(scale(color, beat_envelope(ctx)), ctx.channel_count)
+
+
 EFFECTS = {
     e.name: e
-    for e in (ComboEffect(), BeatFlashEffect(), SpectrumEffect(), IdleEffect())
+    for e in (ComboEffect(), BarsEffect(), BeatFlashEffect(), SpectrumEffect(), IdleEffect())
 }
 
 

@@ -47,11 +47,17 @@ def click_track(
     jitter_ms: float = 0.0,
     noise_level: float = 0.0,
     seed: int = 0,
+    downbeat_accent: float = 1.0,
+    beats_per_bar: int = 4,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Devuelve (muestras mono float32, tiempos reales de beat en segundos).
 
     jitter_ms desplaza cada golpe aleatoriamente, para simular un baterista
     humano en vez de una caja de ritmos.
+
+    downbeat_accent multiplica el bombo del primer tiempo de cada compas. Con
+    1.0 todos los tiempos pesan igual y no hay metrica que detectar; subirlo
+    genera el ground truth para el seguimiento de compas.
     """
     rng = np.random.default_rng(seed)
     n = int(duration * samplerate)
@@ -72,7 +78,8 @@ def click_track(
         t = bt + offset
         # Patron 4/4: bombo en 1 y 3, caja en 2 y 4.
         if i % 2 == 0:
-            place(kick, t, 1.0)
+            en_downbeat = i % beats_per_bar == 0
+            place(kick, t, downbeat_accent if en_downbeat else 1.0)
         else:
             place(snare, t, 0.8)
         place(hat, t, 0.5)

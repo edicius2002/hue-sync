@@ -57,7 +57,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe run.py sync --dry-run --mode beat_flash
 ```
 
-Modos: `combo` (por defecto), `beat_flash`, `spectrum`.
+Modos: `combo` (por defecto), `bars`, `beat_flash`, `spectrum`.
 
 ### Bridge (una sola vez)
 
@@ -103,6 +103,7 @@ audio/     capture.py      loopback WASAPI -> ring buffer (hilo de PortAudio)
 analysis/  odf.py          STFT -> flujo espectral + energia por bandas
            tempo.py        autocorrelacion -> BPM y fase
            beatclock.py    PLL de fase, prediccion del proximo beat
+           downbeat.py     histograma de energia -> cual beat es el "1"
            bands.py        normalizacion adaptativa graves/medios/agudos
 
 hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
@@ -110,7 +111,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | beat_flash | spectrum | idle
+           modes.py        combo | bars | beat_flash | spectrum | idle
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico
@@ -198,6 +199,12 @@ Cosas que costaron encontrar y conviene no deshacer sin medir:
   frames) actuaba como un notch justo en la frecuencia del pulso a 174 BPM.
 - **ODF de graves para el tempo.** Los hi-hats marcan corcheas y llevan al
   detector a la octava de arriba; bombo y caja marcan el pulso real.
+- **El compas se mide con energia cruda de graves, no con la ODF.** La ODF
+  esta log-comprimida (`log1p(1000*|X|)`), que es justo lo que la hace
+  invariante al volumen y permite seguir el tempo con la musica bajita. Esa
+  misma compresion aplasta la diferencia entre un bombo normal y uno acentuado.
+  Y se toma el **pico** de la banda, no la suma: el acento es un transitorio y
+  sumarlo sobre el beat entero lo diluye entre el bajo sostenido.
 - **La confianza es un z-score robusto, no la autocorrelacion cruda.** La
   correlacion absoluta depende del material: un click sintetico da 0.8 y una
   pista producida da 0.3 con el pulso igual de claro, porque el sidechain y la
@@ -256,9 +263,56 @@ Por eso puede subir el brillo durante la fraccion `beat_attack` ANTERIOR al
 golpe. Combinado con `latency_compensation_ms`, el comando sale del PC antes
 del beat y la luz enciende justo en el.
 
+`bars` va un paso mas alla y usa el compas: la paleta avanza en el "1" de cada
+compas y vuelve a empezar cada frase, asi que se ve el 4x4 de la musica en vez
+de un parpadeo uniforme. Ademas, en todos los modos el downbeat pega mas fuerte
+que el resto de tiempos (`downbeat_accent`).
+
+Cuando no hay evidencia suficiente de donde cae el compas, los efectos degradan
+a tratar todos los beats por igual. Acentuar un tiempo al azar se ve peor que
+no acentuar ninguno.
+
 Un efecto es una funcion pura de `RenderContext` a colores: no guarda estado,
 no sabe de audio ni de DTLS. Anadir un modo es anadir una clase a
 `effects/modes.py`.
+
+## Limites del seguimiento de compas
+
+Medido sobre grabaciones reales, no sobre sintetico:
+
+| tema | confianza | resultado |
+|------|-----------|-----------|
+| Billie Jean (backbeat claro) | 0.133 | engancha, marcado **AMBIGUO** |
+| Summer (house four-on-the-floor) | 0.051 | no engancha, correctamente |
+
+Dos limitaciones que conviene tener presentes:
+
+**Ambiguedad de medio compas.** El patron mas comun del pop y el rock pone el
+bombo en el 1 y en el 3 con la misma fuerza. Se detecta la rejilla del compas
+sin problema —esos dos tiempos se llevan el 70% de la energia frente al 30% de
+los otros dos— pero no hay forma de saber cual de los dos empieza el compas.
+El efecto puede acabar cambiando de color en el 3. Se nota, pero sigue siendo
+ritmico y consistente. `sync` lo marca con un `?` junto al numero de compas y
+`analyze` lo dice explicitamente.
+
+**No funciona en four-on-the-floor.** En house y buena parte del EDM el bombo
+pega exactamente igual en los cuatro tiempos: no hay acento por tiempo que
+medir. Eso no es un fallo de la grabacion, es la definicion del genero. El
+compas ahi se marca con cambios de armonia y estructura cada 8 o 16 compases,
+que es territorio de los issues #7 y #8. Cuando no hay enganche los efectos
+degradan a tratar todos los beats por igual.
+
+**La estabilidad importa mas que el acierto.** La primera version usaba un
+solo umbral y en vivo la confianza oscila entre 0.03 y 0.27 sobre el mismo
+tema, asi que enganchaba y desenganchaba cada pocos segundos y el "1" saltaba
+de posicion. El color cambiaba en un tiempo distinto cada vez, que se ve peor
+que no cambiarlo nunca. Con histeresis (0.14 para enganchar, 0.07 para soltar)
+y exigiendo 8 compases antes de mover el downbeat, los cambios de posicion
+pasaron de 13 a 0 sobre la misma grabacion.
+
+**El umbral sigue siendo el parametro mas fragil del proyecto**, calibrado
+sobre dos canciones. Si aparece material que engancha cuando no deberia, es el
+primer sitio donde mirar.
 
 ## Nota de diseno: numero de canales
 
