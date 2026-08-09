@@ -13,6 +13,7 @@ el 4 el area se queda ocupada y la siguiente sesion falla.
 
 from __future__ import annotations
 
+import contextlib
 import time
 
 from .backends import DEFAULT_BACKEND, StreamBackend, StreamError, make_backend
@@ -100,10 +101,10 @@ class EntertainmentSession:
     def stop(self) -> None:
         self.backend.close()
         if self._streaming_requested:
-            try:
+            # Cerrando: si el bridge ya no responde, insistir no aporta nada y
+            # dejaria una excepcion escapando desde un `finally`.
+            with contextlib.suppress(BridgeError):
                 self.rest.set_streaming(self.area_id, False)
-            except BridgeError:
-                pass  # cerrando: no vale la pena propagar
             self._streaming_requested = False
 
     def __enter__(self) -> EntertainmentSession:
