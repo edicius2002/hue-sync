@@ -13,6 +13,7 @@ from .base import (
     harmony_mix,
     saturate,
     scale,
+    smooth_envelope,
     spectrum_color,
 )
 
@@ -98,10 +99,10 @@ class HarmonyEffect:
     espectral. Inventarse un tono ahi produciria un color aleatorio que salta
     en cada golpe, que es peor que no seguir la armonia.
 
-    El beat modula el brillo mucho menos que en los demas modos, y no es un
-    detalle estetico: con la misma pulsacion que `combo`, el parpadeo domina la
-    percepcion y el color pasa desapercibido, asi que los dos modos se ven
-    identicos aunque el color sea distinto.
+    El brillo usa la envolvente sinusoidal y con poca profundidad. Las dos
+    cosas hacen falta: con la pulsacion de `combo` el parpadeo domina la
+    percepcion y el color pasa desapercibido, y con la envolvente de pico
+    —aunque sea suave— los flancos agudos se siguen leyendo como destellos.
     """
 
     name = "harmony"
@@ -109,7 +110,7 @@ class HarmonyEffect:
     def render(self, ctx: RenderContext) -> Channels:
         color = blend(spectrum_color(ctx), harmony_color(ctx), harmony_mix(ctx))
         profundidad = ctx.cfg.harmony_beat_depth
-        brillo = 1.0 - profundidad + profundidad * beat_envelope(ctx)
+        brillo = 1.0 - profundidad + profundidad * smooth_envelope(ctx)
         return fill(scale(color, brillo), ctx.channel_count)
 
 

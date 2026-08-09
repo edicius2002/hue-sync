@@ -211,3 +211,29 @@ def test_la_conversion_a_16_bits_esquiva_la_rama_rota_de_la_libreria():
     for v in (0.0005, 0.001, 0.002, 0.003, 0.0039):
         u = _to_u16(v)
         assert u == 0 or u > 255, f"{v} -> {u} cae en la zona rota"
+
+
+def test_la_envolvente_de_harmony_es_fluida():
+    """Regresion: con la envolvente de pico, el brillo saltaba 0.150 por frame
+    de render y se percibia como parpadeo pese a tener poco rango. La forma
+    importa mas que la profundidad."""
+    import numpy as np
+
+    from huebpm.analysis.tempo import TempoEstimate
+    from huebpm.effects.modes import get_effect
+
+    ctx = contexto(tonality=0.5)
+    ctx.clock.update(
+        TempoEstimate(bpm=120.0, period=0.5, last_beat_time=0.0, confidence=1.0), 0.0
+    )
+    efecto = get_effect("harmony")
+    paso = 1.0 / 50.0  # un frame de render
+    brillos = []
+    for i in range(int(0.5 / paso) + 1):
+        c = RenderContext(
+            now=i * paso, state=ctx.state, clock=ctx.clock,
+            channel_count=1, cfg=ctx.cfg,
+        )
+        brillos.append(max(efecto.render(c)[0]))
+    saltos = np.abs(np.diff(brillos))
+    assert saltos.max() < 0.035, f"salta {saltos.max():.3f} por frame, parpadea"

@@ -131,7 +131,8 @@ effects:
   # Cuanto modula el beat el brillo en `harmony`. Mucho mas bajo que en los
   # otros modos a proposito: si la luz pulsa igual de fuerte, el pulso domina y
   # el color pasa desapercibido, o sea que `harmony` y `combo` se ven iguales.
-  harmony_beat_depth: 0.35
+  # Sube esto si lo quieres mas ritmico; pasado 0.4 vuelve a parpadear.
+  harmony_beat_depth: 0.25
 
   saturation_boost: 1.15   # las luces Hue lavan los tonos mezclados
 

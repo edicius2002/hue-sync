@@ -84,6 +84,23 @@ def beat_envelope(ctx: RenderContext) -> float:
     return cfg.beat_floor + (1.0 - cfg.beat_floor) * level
 
 
+def smooth_envelope(ctx: RenderContext) -> float:
+    """Envolvente sinusoidal: 1.0 en el beat, 0.0 en el contratiempo.
+
+    Alternativa a `beat_envelope` para los modos donde el color es lo que
+    importa. La envolvente normal es un pico agudo con caida exponencial, y los
+    picos agudos se leen como destellos aunque el rango de brillo sea pequeno.
+
+    Medido a 120 BPM y 50 fps, el brillo salta hasta 0.150 por frame con la
+    envolvente de pico contra 0.044 con el coseno, y eso **con mas rango de
+    brillo**. Por encima de unos 0.03 por frame el ojo lo percibe como
+    parpadeo. Lo que hace falta cambiar es la forma, no la profundidad.
+    """
+    if not ctx.clock.locked:
+        return 1.0
+    return 0.5 + 0.5 * math.cos(2.0 * math.pi * ctx.clock.phase(ctx.now))
+
+
 def spectrum_color(ctx: RenderContext) -> Color:
     """Mezcla graves/medios/agudos en un color, por peso de energia."""
     cfg = ctx.cfg
