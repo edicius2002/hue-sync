@@ -21,8 +21,8 @@ class BarTracker:
         self,
         beats_per_bar: int = 4,
         beats_per_phrase: int = 16,
-        decay: float = 0.92,
-        min_confidence: float = 0.30,
+        decay: float = 0.97,
+        min_confidence: float = 0.10,
     ) -> None:
         self.beats_per_bar = beats_per_bar
         self.beats_per_phrase = beats_per_phrase
@@ -49,17 +49,40 @@ class BarTracker:
 
     @property
     def confidence(self) -> float:
-        """0 = los cuatro tiempos pesan igual, 1 = uno domina por completo.
+        """Cuanta estructura metrica hay: 0 = los tiempos pesan igual, 1 = uno
+        se lo lleva todo.
 
-        Se mide contra el reparto uniforme, no contra cero: con cuatro
-        posiciones, que el maximo se lleve un 25% no dice absolutamente nada.
+        Es la distancia de variacion total al reparto uniforme, y NO "cuanto
+        domina el maximo". La diferencia importa: medido sobre Billie Jean, el
+        bombo cae en el 1 y en el 3, y esos dos tiempos se llevan el 70% de la
+        energia frente al 30% de los otros dos. La estructura es inequivoca,
+        pero mirando solo el maximo (35%) la metrica daba 0.14 y no enganchaba
+        nunca. Con la desviacion completa da 0.27 y separa bien: el mismo
+        calculo sobre house four-on-the-floor, donde de verdad no hay metrica,
+        da 0.05.
         """
         total = self._scores.sum()
         if total <= 0 or self._beats_seen < self.beats_per_bar:
             return 0.0
+        reparto = self._scores / total
         uniforme = 1.0 / self.beats_per_bar
-        proporcion = float(self._scores.max() / total)
-        return float(np.clip((proporcion - uniforme) / (1.0 - uniforme), 0.0, 1.0))
+        desviacion = float(np.abs(reparto - uniforme).sum())
+        return float(np.clip(desviacion / (2.0 * (1.0 - uniforme)), 0.0, 1.0))
+
+    @property
+    def ambiguous(self) -> bool:
+        """True si el segundo tiempo mas fuerte casi empata con el primero.
+
+        Pasa siempre que el bombo va en 1 y 3 con la misma fuerza, que es el
+        patron mas comun del pop y el rock. Sabemos donde esta la rejilla del
+        compas pero no cual de los dos es el "1": el efecto puede acabar
+        cambiando de color en el 3. Se desplaza medio compas y se nota, pero
+        sigue siendo rítmico y consistente, que es lo que importa para luces.
+        """
+        if self._scores.sum() <= 0:
+            return True
+        ordenados = np.sort(self._scores)[::-1]
+        return bool(ordenados[1] > 0.85 * ordenados[0])
 
     @property
     def locked(self) -> bool:

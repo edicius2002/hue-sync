@@ -169,13 +169,16 @@ def _status(state, engine, channels, sent, failed, limiter, mode, now) -> None: 
     # o en 0.28 (rozando el umbral y solo hay que bajarlo un poco).
     indice = engine.clock.beat_index(now)
     if engine.bars.locked and indice is not None:
-        compas = f"{engine.bars.beat_in_bar(indice) + 1}/{engine.bars.beats_per_bar}"
+        # El '?' avisa de que el 1 y el 3 empatan: la rejilla es correcta pero
+        # el compas puede estar desplazado medio compas.
+        duda = "?" if engine.bars.ambiguous else " "
+        compas = f"{engine.bars.beat_in_bar(indice) + 1}/{engine.bars.beats_per_bar}{duda}"
     else:
         compas = "-"
 
     sys.stdout.write(
         f"\r{mode:<10} BPM {bpm} conf {state.confidence:4.2f} {estado:<9} "
-        f"compas {compas:<4} bconf {engine.bars.confidence:4.2f}  "
+        f"compas {compas:<5} bconf {engine.bars.confidence:4.2f}  "
         f"g/m/a {niveles}  rgb {r:.2f},{g:.2f},{b:.2f}  "
         f"env {sent} err {failed} jit {limiter.jitter.mean_ms:.2f}ms   "
     )

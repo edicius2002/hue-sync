@@ -96,13 +96,14 @@ class AnalysisConfig:
 
     beats_per_bar: int = 4
     beats_per_phrase: int = 16
-    downbeat_decay: float = 0.92
+    downbeat_decay: float = 0.97
     """Decaimiento del histograma de compas. Bajo = se readapta rapido a un
     cambio de seccion pero es mas inestable."""
-    downbeat_min_confidence: float = 0.30
-    """Calibrado con señal sintetica: un patron sin acento pero con bombo cada
-    dos tiempos ya da ~0.22, asi que un umbral por debajo de eso engancharia a
-    una ambiguedad de medio compas. Hace falta ~2x de acento real para pasar."""
+    downbeat_min_confidence: float = 0.10
+    """Calibrado sobre musica real, no sintetica: Billie Jean (backbeat claro)
+    da 0.133 y Summer (house four-on-the-floor, sin metrica por tiempo) da
+    0.051. El margen es de solo 2.6x, asi que este umbral es el parametro mas
+    fragil del proyecto: esta ajustado sobre dos canciones."""
 
 
 @dataclass

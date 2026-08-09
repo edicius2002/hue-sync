@@ -67,11 +67,11 @@ analysis:
   # histograma modulo beats_per_bar; el maximo es el "1".
   beats_per_bar: 4
   beats_per_phrase: 16
-  downbeat_decay: 0.92        # bajo = se readapta rapido pero mas inestable
-  # Calibrado con señal sintetica: un patron sin acento pero con bombo cada dos
-  # tiempos ya da ~0.22, asi que por debajo de eso engancharia a una ambiguedad
-  # de medio compas. Hace falta ~2x de acento real para pasar.
-  downbeat_min_confidence: 0.30
+  downbeat_decay: 0.97        # bajo = se readapta rapido pero mas inestable
+  # Calibrado sobre musica REAL, no sintetica: Billie Jean (backbeat claro) da
+  # 0.133 y Summer (house four-on-the-floor) da 0.051. El margen es de solo
+  # 2.6x, asi que este es el parametro mas fragil del proyecto.
+  downbeat_min_confidence: 0.10
 
 effects:
   mode: combo              # combo | bars | beat_flash | spectrum

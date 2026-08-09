@@ -276,6 +276,36 @@ Un efecto es una funcion pura de `RenderContext` a colores: no guarda estado,
 no sabe de audio ni de DTLS. Anadir un modo es anadir una clase a
 `effects/modes.py`.
 
+## Limites del seguimiento de compas
+
+Medido sobre grabaciones reales, no sobre sintetico:
+
+| tema | confianza | resultado |
+|------|-----------|-----------|
+| Billie Jean (backbeat claro) | 0.133 | engancha, marcado **AMBIGUO** |
+| Summer (house four-on-the-floor) | 0.051 | no engancha, correctamente |
+
+Dos limitaciones que conviene tener presentes:
+
+**Ambiguedad de medio compas.** El patron mas comun del pop y el rock pone el
+bombo en el 1 y en el 3 con la misma fuerza. Se detecta la rejilla del compas
+sin problema —esos dos tiempos se llevan el 70% de la energia frente al 30% de
+los otros dos— pero no hay forma de saber cual de los dos empieza el compas.
+El efecto puede acabar cambiando de color en el 3. Se nota, pero sigue siendo
+ritmico y consistente. `sync` lo marca con un `?` junto al numero de compas y
+`analyze` lo dice explicitamente.
+
+**No funciona en four-on-the-floor.** En house y buena parte del EDM el bombo
+pega exactamente igual en los cuatro tiempos: no hay acento por tiempo que
+medir. Eso no es un fallo de la grabacion, es la definicion del genero. El
+compas ahi se marca con cambios de armonia y estructura cada 8 o 16 compases,
+que es territorio de los issues #7 y #8. Cuando no hay enganche los efectos
+degradan a tratar todos los beats por igual.
+
+**El umbral es el parametro mas fragil del proyecto.** El margen entre los dos
+casos medidos es de solo 2.6x y esta ajustado sobre dos canciones. Si aparece
+material que engancha cuando no deberia, es el primer sitio donde mirar.
+
 ## Nota de diseno: numero de canales
 
 Las dos entertainment areas del bridge (`bed` y `Baño`) tienen **un solo canal

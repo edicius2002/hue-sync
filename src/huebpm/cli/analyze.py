@@ -98,7 +98,8 @@ def run_analyze(
     bars = engine.bars
     print(f"\nCompas: confianza {bars.confidence:.3f} "
           f"(umbral {bars.min_confidence:.2f}) -> "
-          f"{'ENGANCHADO en el tiempo ' + str(bars.offset) if bars.locked else 'sin enganche'}")
+          f"{'ENGANCHADO en el tiempo ' + str(bars.offset) if bars.locked else 'sin enganche'}"
+          f"{'  [AMBIGUO: el 1 y el 3 empatan, puede ir medio compas desplazado]' if bars.locked and bars.ambiguous else ''}")
     total = bars.scores.sum()
     if total > 0:
         reparto = bars.scores / total

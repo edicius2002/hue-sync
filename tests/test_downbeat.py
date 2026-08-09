@@ -39,6 +39,25 @@ def test_energia_uniforme_no_engancha():
         bars.push_beat(i, 1.0)
     assert bars.confidence < 0.05
     assert not bars.locked
+    assert bars.ambiguous
+
+
+def test_dos_tiempos_fuertes_iguales_son_ambiguos():
+    """El patron mas comun del pop: bombo en 1 y 3. Se conoce la rejilla pero
+    no cual de los dos empieza el compas."""
+    bars = BarTracker()
+    for i in range(60):
+        bars.push_beat(i, 5.0 if i % 2 == 0 else 1.0)
+    assert bars.locked, "la estructura de 2 tiempos es real"
+    assert bars.ambiguous
+
+
+def test_un_solo_tiempo_dominante_no_es_ambiguo():
+    bars = BarTracker()
+    for i in range(60):
+        bars.push_beat(i, 5.0 if i % 4 == 0 else 1.0)
+    assert bars.locked
+    assert not bars.ambiguous
 
 
 def test_encuentra_el_tiempo_acentuado():
@@ -167,13 +186,29 @@ def test_la_confianza_crece_con_el_acento_en_audio_real():
     assert confianzas == sorted(confianzas), f"deberia crecer, dio {confianzas}"
 
 
-def test_sin_acento_no_se_inventa_un_compas():
-    """Sin acento el patron sigue teniendo bombo cada dos tiempos, asi que hay
-    algo de estructura; lo que no debe haber es enganche de compas, porque
-    elegir entre el 1 y el 3 seria una moneda al aire."""
+def test_sin_acento_detecta_la_rejilla_pero_se_declara_ambiguo():
+    """Sin acento el bombo cae en 1 y 3 con la misma fuerza. Hay estructura
+    metrica de verdad —esos dos tiempos pesan el triple que los otros— asi que
+    negarla seria mentir. Lo que no se puede saber es cual de los dos es el
+    "1", y eso es justo lo que reporta `ambiguous`."""
     engine, _ = analizar(128.0, 30.0, acento=1.0)
     assert engine.clock.locked
-    assert not engine.bars.locked, f"confianza {engine.bars.confidence:.3f} deberia estar bajo umbral"
+    assert engine.bars.locked, "la rejilla si esta ahi"
+    assert engine.bars.ambiguous, "pero el 1 y el 3 empatan"
+
+
+def test_con_acento_el_downbeat_deja_de_ser_ambiguo():
+    engine, _ = analizar(128.0, 30.0, acento=3.0)
+    assert engine.bars.locked
+    assert not engine.bars.ambiguous
+
+
+def test_energia_plana_de_verdad_no_engancha():
+    """Cuatro tiempos identicos: no hay nada que detectar y hay que decirlo."""
+    bars = BarTracker()
+    for i in range(60):
+        bars.push_beat(i, 1.0)
+    assert not bars.locked
 
 
 def test_el_histograma_se_reinicia_si_el_reloj_salta():
