@@ -53,7 +53,7 @@ def run_analyze(
     engine = AnalysisEngine(rate, cfg.analysis)
     block = cfg.audio.blocksize
 
-    print(f"\n{'t':>6} {'tracker':>9} {'conf':>6} {'acf':>6} {'reloj':>8}")
+    print(f"\n{'t':>6} {'tracker':>9} {'conf':>6} {'acf':>6} {'reloj':>8} {'bconf':>6}")
     trace_at = 0.0
     lock_time = None
     settled_at = None
@@ -78,7 +78,8 @@ def run_analyze(
             acf = f"{curve.raw.max():6.3f}" if curve is not None else "    --"
             if est:
                 clock = f"{engine.clock.bpm:8.1f}" if engine.clock.bpm else "      --"
-                print(f"{t:6.1f} {est.bpm:9.1f} {est.confidence:6.2f} {acf} {clock}")
+                print(f"{t:6.1f} {est.bpm:9.1f} {est.confidence:6.2f} {acf} {clock} "
+                      f"{engine.bars.confidence:6.2f}")
 
     if lock_time:
         print(f"\nPrimer enganche a los {lock_time:.1f} s")
@@ -93,6 +94,18 @@ def run_analyze(
             octave = abs(round(np.log2(ratio)) - np.log2(ratio)) < 0.04
             print(f"Esperado {expected_bpm:.1f}  ->  x{ratio:.3f}  "
                   f"{'octava valida' if octave else 'RELACION NO ENTERA'}")
+
+    bars = engine.bars
+    print(f"\nCompas: confianza {bars.confidence:.3f} "
+          f"(umbral {bars.min_confidence:.2f}) -> "
+          f"{'ENGANCHADO en el tiempo ' + str(bars.offset) if bars.locked else 'sin enganche'}")
+    total = bars.scores.sum()
+    if total > 0:
+        reparto = bars.scores / total
+        for i, peso in enumerate(reparto):
+            marca = " <- el '1'" if i == bars.offset else ""
+            print(f"  tiempo {i}: {peso:5.1%}  {'#' * int(peso * 60)}{marca}")
+        print("  (un reparto plano de 25% significa que no hay metrica detectable)")
 
     curve = engine.tempo.score_curve()
     if curve is not None:

@@ -111,7 +111,8 @@ def run_sync(
 
                 if now >= next_status:
                     next_status = now + 0.1
-                    _status(state, engine, channels, sent, failed, limiter, active.name)
+                    _status(state, engine, channels, sent, failed, limiter,
+                            active.name, lookahead)
     except KeyboardInterrupt:
         pass
     finally:
@@ -154,17 +155,28 @@ def _context(engine, state, now, channel_count, cfg) -> RenderContext:  # noqa: 
     )
 
 
-def _status(state, engine, channels, sent, failed, limiter, mode) -> None:  # noqa: ANN001
+def _status(state, engine, channels, sent, failed, limiter, mode, now) -> None:  # noqa: ANN001
     bpm = f"{state.bpm:6.1f}" if state.bpm else "  --  "
     r, g, b = next(iter(channels.values()))
-    bars = "".join(
+    niveles = "".join(
         "#" * int(round(v * 8)) + "." * (8 - int(round(v * 8)))
         for v in (list(state.bands) + [0, 0, 0])[:3]
     )
     estado = "SILENCIO" if state.silent else ("LOCK" if engine.clock.locked else "buscando")
+
+    # La confianza de compas se muestra siempre, enganche o no. Si nunca
+    # engancha hace falta saber si esta en 0.05 (no hay metrica que detectar)
+    # o en 0.28 (rozando el umbral y solo hay que bajarlo un poco).
+    indice = engine.clock.beat_index(now)
+    if engine.bars.locked and indice is not None:
+        compas = f"{engine.bars.beat_in_bar(indice) + 1}/{engine.bars.beats_per_bar}"
+    else:
+        compas = "-"
+
     sys.stdout.write(
         f"\r{mode:<10} BPM {bpm} conf {state.confidence:4.2f} {estado:<9} "
-        f"g/m/a {bars}  rgb {r:.2f},{g:.2f},{b:.2f}  "
+        f"compas {compas:<4} bconf {engine.bars.confidence:4.2f}  "
+        f"g/m/a {niveles}  rgb {r:.2f},{g:.2f},{b:.2f}  "
         f"env {sent} err {failed} jit {limiter.jitter.mean_ms:.2f}ms   "
     )
     sys.stdout.flush()
