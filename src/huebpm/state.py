@@ -21,6 +21,11 @@ class AudioState:
     flux: float = 0.0
     bands: np.ndarray = field(default_factory=lambda: np.zeros(3))
     """Graves, medios, agudos normalizados a 0..1."""
+    chroma_hue: float = 0.0
+    """Posicion en el circulo cromatico, 0..1. Sigue la armonia, no el timbre."""
+    tonality: float = 0.0
+    """0 = percusion o ruido, 1 = una nota sola. Es lo que evita colorear un
+    redoble con un tono arbitrario."""
     rms: float = 0.0
     silent: bool = True
     frames_analyzed: int = 0

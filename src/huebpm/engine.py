@@ -17,6 +17,7 @@ import numpy as np
 
 from .analysis.bands import BandLevels
 from .analysis.beatclock import BeatClock
+from .analysis.chroma import ChromaAnalyzer
 from .analysis.downbeat import BarTracker
 from .analysis.odf import SpectralAnalyzer
 from .analysis.tempo import TempoTracker
@@ -99,6 +100,17 @@ class AnalysisEngine:
             unlock_confidence=cfg.downbeat_unlock_confidence,
             offset_hold=cfg.downbeat_offset_hold,
         )
+        self.chroma = ChromaAnalyzer(
+            samplerate,
+            fft_size=cfg.chroma_fft_size,
+            hop=cfg.chroma_hop,
+            fmin=cfg.chroma_fmin,
+            fmax=cfg.chroma_fmax,
+            smoothing=cfg.chroma_smoothing,
+            tonality_smoothing=cfg.chroma_tonality_smoothing,
+            peaks_only=cfg.chroma_peaks_only,
+            hue_glide=cfg.chroma_hue_glide,
+        )
         self.mapper = ClockMapper()
         self.publisher = StatePublisher()
 
@@ -132,6 +144,7 @@ class AnalysisEngine:
             self.tempo.push(w_low * f.flux_low + w_full * f.flux, f.t)
         self._frames_analyzed += len(frames)
 
+        self.chroma.process(samples)
         band_levels = self.bands.update(frames[-1].bands, dt)
         self._accumulate_beat_energy(frames)
 
@@ -171,6 +184,8 @@ class AnalysisEngine:
                 locked=self.clock.locked,
                 flux=frames[-1].flux,
                 bands=band_levels,
+                chroma_hue=self.chroma.hue,
+                tonality=self.chroma.tonality,
                 rms=rms,
                 silent=silent,
                 frames_analyzed=self._frames_analyzed,

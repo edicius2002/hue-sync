@@ -94,6 +94,28 @@ class AnalysisConfig:
     silence_rms: float = 1e-4
     silence_timeout: float = 2.0
 
+    chroma_fft_size: int = 8192
+    """Mucho mayor que el de la ODF a proposito: con 1024 los semitonos solo se
+    resuelven por encima de 788 Hz, o sea que no sirve para las fundamentales.
+    Con 8192 se resuelven desde 99 Hz. Se paga en resolucion temporal, que aqui
+    da igual: los acordes duran segundos, no milisegundos."""
+    chroma_hop: int = 2048
+    chroma_fmin: float = 100.0
+    chroma_fmax: float = 2000.0
+    """Por encima dominan los armonicos, y el tercero cae una quinta arriba, o
+    sea en otra clase de altura: ampliar el rango anade ruido tonal."""
+    chroma_smoothing: float = 0.93
+    chroma_tonality_smoothing: float = 0.97
+    """Mas fuerte que el del chroma a proposito: la tonalidad gobierna la
+    mezcla entre color armonico y espectral, y si oscila el color va y viene
+    entre dos fuentes distintas."""
+    chroma_peaks_only: bool = True
+    chroma_hue_glide: float = 0.0
+    """Suavizado extra del color. Cero: medido, no aporta estabilidad sobre lo
+    que ya da el umbral de tonalidad, y cuesta precision en material tonal."""
+    """Acumular solo los maximos locales del espectro. En mezcla completa sube
+    la separacion entre musica y ruido de 3.9x a 8.8x."""
+
     beats_per_bar: int = 4
     beats_per_phrase: int = 16
     downbeat_decay: float = 0.97
@@ -160,6 +182,36 @@ class EffectsConfig:
         (0.2, 0.35, 1.0),
     )
     """Un color por compas dentro de la frase, para el modo `bars`."""
+
+    harmony_min_tonality: float = 0.08
+    """Por debajo no hay armonia fiable y el color viene del espectro.
+
+    Calibrado sobre material real: una progresion tonal limpia da 0.37 de
+    tonalidad, y una mezcla de pop o house se queda en 0.03-0.04, apenas por
+    encima del 0.008 del ruido blanco. Con el umbral anterior de 0.02 el modo
+    se enganchaba a mezclas densas y pintaba ruido; ahora se aparta y deja el
+    color espectral, que al menos responde a algo real."""
+    harmony_full_tonality: float = 0.20
+    """A partir de aqui el color es armonia pura. Entre los dos se mezcla
+    progresivamente: un corte seco produce un fogonazo al cruzarlo."""
+    """Por debajo de esto no hay armonia que seguir (percusion, ruido) y el
+    modo `harmony` cae a color espectral en vez de inventarse un tono."""
+    harmony_saturation: float = 0.9
+    harmony_beat_depth: float = 0.0
+    """Cuanto modula el beat el brillo en `harmony`, de 0 a 1.
+
+    Cero por defecto: brillo constante y solo cambia el color. Es la separacion
+    limpia entre modos, `combo` lleva el ritmo y `harmony` la armonia. Cualquier
+    bajada de brillo entre cambios de color se percibe como un apagado, no como
+    parte de la musica.
+
+    Subelo si lo quieres con pulso; la pendiente se acota sola."""
+    harmony_max_step: float = 0.03
+    """Cambio maximo de brillo entre frames de render.
+
+    Acotar esto y no la profundidad es lo que hace que la sensacion sea la
+    misma a cualquier tempo: la fase avanza (BPM/60)/fps por frame, asi que una
+    profundidad comoda a 120 BPM parpadea a 174."""
 
     saturation_boost: float = 1.15
     """Las luces Hue lavan los colores; un poco de saturacion extra compensa."""

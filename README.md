@@ -57,7 +57,7 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe run.py sync --dry-run --mode beat_flash
 ```
 
-Modos: `combo` (por defecto), `bars`, `beat_flash`, `spectrum`.
+Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`.
 
 ### Bridge (una sola vez)
 
@@ -104,6 +104,7 @@ analysis/  odf.py          STFT -> flujo espectral + energia por bandas
            tempo.py        autocorrelacion -> BPM y fase
            beatclock.py    PLL de fase, prediccion del proximo beat
            downbeat.py     histograma de energia -> cual beat es el "1"
+           chroma.py       12 clases de altura -> color por armonia
            bands.py        normalizacion adaptativa graves/medios/agudos
 
 hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
@@ -111,7 +112,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | bars | beat_flash | spectrum | idle
+           modes.py        combo | harmony | bars | beat_flash | spectrum | idle
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico
@@ -275,6 +276,66 @@ no acentuar ninguno.
 Un efecto es una funcion pura de `RenderContext` a colores: no guarda estado,
 no sabe de audio ni de DTLS. Anadir un modo es anadir una clase a
 `effects/modes.py`.
+
+## Que rinde el modo `harmony`
+
+El color deja de responder al timbre de la mezcla y responde a que notas
+suenan. Medido:
+
+| material | tonalidad detectada |
+|----------|---------------------|
+| acordes sintetizados | 0.20 - 0.41 |
+| musica real (mezcla completa) | 0.04 - 0.05 |
+| ruido blanco | 0.008 |
+
+Identifica las 12 notas sueltas y todas las notas de triadas, septimas y
+quintas, con armonicos incluidos. Volver al mismo acorde devuelve el mismo
+color.
+
+El brillo se comporta distinto que en los demas modos, y hicieron falta dos
+cambios para que el modo sirva de algo en la practica:
+
+**Menos profundidad.** Con la misma pulsacion que `combo` el parpadeo domina la
+percepcion y el color pasa desapercibido, asi que ambos modos se ven identicos
+aunque el color sea distinto.
+
+**Envolvente sinusoidal en vez de pico.** Bajar la profundidad no basta: los
+flancos agudos de la envolvente normal se siguen leyendo como destellos. Medido
+a 120 BPM y 50 fps, el brillo saltaba 0.150 por frame con la envolvente de pico
+y 0.031 con el coseno, y eso con MAS rango de brillo. Lo que importa es la
+forma, no la profundidad.
+
+**Brillo constante por defecto, y pendiente acotada por tempo.** Ni siquiera el
+coseno suave acaba de funcionar: cualquier bajada entre cambios de color se
+percibe como un apagado en vez de como parte de la musica, asi que
+`harmony_beat_depth` viene a cero y solo cambia el color. Si se le sube, la
+profundidad se recorta sola para que el salto por frame no pase de
+`harmony_max_step`. Hace falta porque la fase avanza (BPM/60)/fps por frame:
+un ajuste comodo a 120 BPM parpadea a 174.
+
+**El modo se aparta cuando no hay armonia fiable, y eso es casi siempre en
+mezcla densa.** Con el umbral bajo el color perseguia un centroide que da 4.84
+vueltas al circulo cromatico en 22 segundos sobre Billie Jean: ningun tema
+cambia de acorde a ese ritmo, era ruido pintado de color. Subiendo
+`harmony_min_tonality` a 0.08 el movimiento cae a 0.0004 por frame, o sea que
+el color simplemente se queda quieto y manda el espectral.
+
+Antes de dar con eso se probaron dos cosas que **no** funcionan, anotadas para
+que nadie las repita. Cuantizar a la clase de altura dominante con histeresis,
+que es lo que arreglo el compas: en una triada las tres notas pesan casi igual
+y el maximo es una moneda al aire, asi que sobre una progresion con 3 cambios
+reales la clase dominante cambiaba 11 veces. Y suavizar fuerte el color, que
+cuesta precision sin comprar estabilidad: volver al mismo acorde daba un color
+desviado 0.24 en el circulo contra 0.09 sin suavizado.
+
+**En mezcla completa la ganancia de estabilidad de color es modesta.** El color resulta un 15% mas
+estable que el espectral (0.016 contra 0.019 de movimiento por frame), no el
+salto que sugiere la prueba sintetica. La bateria reparte energia por las 12
+clases y aplana el chroma, asi que la tonalidad de una mezcla real queda mucho
+mas cerca del ruido que de un acorde limpio. Donde de verdad luce es en
+material tonal y poco denso.
+
+Coste: 1.4% de un nucleo sobre lo que ya habia.
 
 ## Limites del seguimiento de compas
 

@@ -14,6 +14,7 @@ import numpy as np
 
 from ..config import Config
 from ..engine import AnalysisEngine
+from ..testing.synth import NOTE_NAMES
 
 
 def load_wav(path: Path) -> tuple[np.ndarray, int]:
@@ -53,7 +54,8 @@ def run_analyze(
     engine = AnalysisEngine(rate, cfg.analysis)
     block = cfg.audio.blocksize
 
-    print(f"\n{'t':>6} {'tracker':>9} {'conf':>6} {'acf':>6} {'reloj':>8} {'bconf':>6}")
+    print(f"\n{'t':>6} {'tracker':>9} {'conf':>6} {'acf':>6} {'reloj':>8} "
+          f"{'bconf':>6} {'nota':>5} {'tonal':>6}")
     trace_at = 0.0
     lock_time = None
     settled_at = None
@@ -79,7 +81,9 @@ def run_analyze(
             if est:
                 clock = f"{engine.clock.bpm:8.1f}" if engine.clock.bpm else "      --"
                 print(f"{t:6.1f} {est.bpm:9.1f} {est.confidence:6.2f} {acf} {clock} "
-                      f"{engine.bars.confidence:6.2f}")
+                      f"{engine.bars.confidence:6.2f} "
+                      f"{NOTE_NAMES[engine.chroma.dominant]:>5} "
+                      f"{engine.chroma.tonality:6.3f}")
 
     if lock_time:
         print(f"\nPrimer enganche a los {lock_time:.1f} s")
@@ -107,6 +111,14 @@ def run_analyze(
             marca = " <- el '1'" if i == bars.offset else ""
             print(f"  tiempo {i}: {peso:5.1%}  {'#' * int(peso * 60)}{marca}")
         print("  (un reparto plano de 25% significa que no hay metrica detectable)")
+
+    ch = engine.chroma
+    print(f"\nArmonia: tonalidad {ch.tonality:.3f}, nota dominante "
+          f"{NOTE_NAMES[ch.dominant]}, hue {ch.hue:.3f}")
+    print("  referencia:  ~0.01 ruido   ~0.04 mezcla densa   >0.15 material tonal")
+    reparto = ch.chroma / max(ch.chroma.sum(), 1e-9)
+    for i in np.argsort(reparto)[::-1][:6]:
+        print(f"  {NOTE_NAMES[i]:>2}: {reparto[i]:5.1%}  {'#' * int(reparto[i] * 100)}")
 
     curve = engine.tempo.score_curve()
     if curve is not None:

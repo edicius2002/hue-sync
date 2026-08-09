@@ -7,7 +7,11 @@ from .base import (
     Channels,
     RenderContext,
     beat_envelope,
+    blend,
     fill,
+    gentle_brightness,
+    harmony_color,
+    harmony_mix,
     saturate,
     scale,
     spectrum_color,
@@ -83,9 +87,38 @@ class BarsEffect:
         return fill(scale(color, beat_envelope(ctx)), ctx.channel_count)
 
 
+class HarmonyEffect:
+    """Color por armonia, brillo por beat.
+
+    Es el modo mas musical de los cinco: el color deja de responder al timbre
+    de la mezcla y responde a que notas suenan, asi que se queda quieto
+    mientras dura un acorde y se mueve cuando cambia. Los otros modos parpadean
+    con cada golpe de bateria aunque la armonia no se haya movido.
+
+    Cuando no hay contenido tonal —percusion sola, ruido— cae a color
+    espectral. Inventarse un tono ahi produciria un color aleatorio que salta
+    en cada golpe, que es peor que no seguir la armonia.
+
+    Por defecto el brillo es **constante** y solo cambia el color: es la
+    separacion limpia entre los dos modos, `combo` lleva el ritmo y `harmony`
+    lleva la armonia. Subiendo `harmony_beat_depth` se le devuelve pulso, con
+    la pendiente acotada para que no parpadee a tempos altos.
+    """
+
+    name = "harmony"
+
+    def render(self, ctx: RenderContext) -> Channels:
+        color = blend(spectrum_color(ctx), harmony_color(ctx), harmony_mix(ctx))
+        brillo = gentle_brightness(
+            ctx, ctx.cfg.harmony_beat_depth, ctx.cfg.harmony_max_step
+        )
+        return fill(scale(color, brillo), ctx.channel_count)
+
+
 EFFECTS = {
     e.name: e
-    for e in (ComboEffect(), BarsEffect(), BeatFlashEffect(), SpectrumEffect(), IdleEffect())
+    for e in (ComboEffect(), HarmonyEffect(), BarsEffect(),
+              BeatFlashEffect(), SpectrumEffect(), IdleEffect())
 }
 
 

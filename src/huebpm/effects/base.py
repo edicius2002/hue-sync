@@ -11,6 +11,7 @@ golpe y solo poder reaccionar despues.
 
 from __future__ import annotations
 
+import colorsys
 import math
 from dataclasses import dataclass
 from typing import Protocol
@@ -40,6 +41,9 @@ class RenderContext:
     beat_in_bar: int = 0
     """Que tiempo del compas es este. 0 es el "1"."""
     bar_locked: bool = False
+    render_fps: float = 50.0
+    """Necesario para acotar la pendiente del brillo: cuanto avanza la fase
+    entre dos frames depende del tempo, asi que la suavidad percibida tambien."""
     """False mientras no haya evidencia suficiente de donde cae el compas. Los
     efectos deben degradar a tratar todos los beats por igual, no inventarse
     un downbeat que no esta."""
@@ -83,6 +87,45 @@ def beat_envelope(ctx: RenderContext) -> float:
     return cfg.beat_floor + (1.0 - cfg.beat_floor) * level
 
 
+def smooth_envelope(ctx: RenderContext) -> float:
+    """Envolvente sinusoidal: 1.0 en el beat, 0.0 en el contratiempo.
+
+    Alternativa a `beat_envelope` para los modos donde el color es lo que
+    importa. La envolvente normal es un pico agudo con caida exponencial, y los
+    picos agudos se leen como destellos aunque el rango de brillo sea pequeno.
+
+    Medido a 120 BPM y 50 fps, el brillo salta hasta 0.150 por frame con la
+    envolvente de pico contra 0.044 con el coseno, y eso **con mas rango de
+    brillo**. Por encima de unos 0.03 por frame el ojo lo percibe como
+    parpadeo. Lo que hace falta cambiar es la forma, no la profundidad.
+    """
+    if not ctx.clock.locked:
+        return 1.0
+    return 0.5 + 0.5 * math.cos(2.0 * math.pi * ctx.clock.phase(ctx.now))
+
+
+def gentle_brightness(ctx: RenderContext, depth: float, max_step: float) -> float:
+    """Brillo sinusoidal con la pendiente acotada, independiente del tempo.
+
+    La suavidad percibida no depende de cuanto varia el brillo sino de cuanto
+    varia **entre frames consecutivos**, y eso escala con el tempo: la fase
+    avanza (BPM/60)/fps por frame, asi que un ajuste comodo a 120 BPM parpadea
+    a 174. Aqui se recorta la profundidad para que el salto maximo nunca supere
+    `max_step`, lo que da la misma sensacion a cualquier tempo.
+
+    La pendiente maxima de 0.5+0.5*cos(2*pi*f) es pi, en el contratiempo.
+    """
+    if depth <= 0.0 or not ctx.clock.locked:
+        return 1.0
+
+    periodo = ctx.clock.period or 0.5
+    avance_de_fase = 1.0 / (periodo * ctx.render_fps)
+    limite = max_step / max(1e-9, math.pi * avance_de_fase)
+    depth = min(depth, limite)
+
+    return 1.0 - depth + depth * smooth_envelope(ctx)
+
+
 def spectrum_color(ctx: RenderContext) -> Color:
     """Mezcla graves/medios/agudos en un color, por peso de energia."""
     cfg = ctx.cfg
@@ -106,6 +149,32 @@ def saturate(color: Color, boost: float) -> Color:
     return tuple(  # type: ignore[return-value]
         max(0.0, min(1.0, mean + (c - mean) * boost)) for c in color
     )
+
+
+def harmony_color(ctx: RenderContext) -> Color:
+    """Color derivado de la posicion en el circulo cromatico."""
+    # La saturacion sigue a la tonalidad: cuanto mas clara es la armonia, mas
+    # puro el color. Un pasaje ambiguo se ve lavado en vez de mentir.
+    sat = min(1.0, ctx.cfg.harmony_saturation * ctx.state.tonality / 0.08)
+    return colorsys.hsv_to_rgb(ctx.state.chroma_hue, sat, 1.0)
+
+
+def harmony_mix(ctx: RenderContext) -> float:
+    """Cuanto fiarse de la armonia, 0..1.
+
+    Es una rampa y no un umbral duro por una razon medida: con un corte seco,
+    cruzarlo produce un salto de color de casi el rango entero (0.99 sobre 1.0
+    de distancia RGB), que se ve como un fogonazo cuando la tonalidad ronda el
+    limite. Mezclando progresivamente hacia el color espectral, el paso es
+    invisible.
+    """
+    minimo = ctx.cfg.harmony_min_tonality
+    rango = max(1e-6, ctx.cfg.harmony_full_tonality - minimo)
+    return max(0.0, min(1.0, (ctx.state.tonality - minimo) / rango))
+
+
+def blend(a: Color, b: Color, t: float) -> Color:
+    return tuple(x + (y - x) * t for x, y in zip(a, b, strict=True))  # type: ignore[return-value]
 
 
 def scale(color: Color, factor: float) -> Color:

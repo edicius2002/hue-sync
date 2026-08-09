@@ -93,3 +93,82 @@ def click_track(
     if peak > 0:
         out = out / peak * 0.7
     return out.astype(np.float32), beat_times
+
+
+# --- material tonal, para validar el chroma ---------------------------------
+
+NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+
+# Intervalos en semitonos desde la fundamental.
+CHORDS = {
+    "maj": (0, 4, 7),
+    "min": (0, 3, 7),
+    "maj7": (0, 4, 7, 11),
+    "power": (0, 7),
+}
+
+
+def note_hz(pitch_class: int, octave: int = 4) -> float:
+    """Frecuencia de una nota. C4 = 261.6 Hz, A4 = 440 Hz."""
+    midi = 12 * (octave + 1) + pitch_class
+    return 440.0 * 2.0 ** ((midi - 69) / 12.0)
+
+
+def tone(
+    freq: float,
+    duration: float,
+    samplerate: int = 48000,
+    harmonics: int = 4,
+    decay: float = 0.6,
+) -> np.ndarray:
+    """Nota con armonicos, no un seno puro.
+
+    Los armonicos importan para que la prueba sea honesta: el tercer armonico
+    cae una quinta arriba, o sea en otra clase de altura, asi que un detector
+    que solo funcione con senos puros no serviria para instrumentos reales.
+    """
+    n = int(duration * samplerate)
+    t = np.arange(n) / samplerate
+    out = np.zeros(n, dtype=np.float32)
+    for k in range(1, harmonics + 1):
+        if freq * k >= samplerate / 2:
+            break
+        out += (decay ** (k - 1)) * np.sin(2 * np.pi * freq * k * t).astype(np.float32)
+    envelope = np.minimum(1.0, np.arange(n) / max(1, int(0.01 * samplerate)))
+    return (out * envelope).astype(np.float32)
+
+
+def chord(
+    root: int,
+    quality: str = "maj",
+    duration: float = 2.0,
+    samplerate: int = 48000,
+    octave: int = 3,
+) -> tuple[np.ndarray, tuple[int, ...]]:
+    """Devuelve (audio, clases de altura presentes)."""
+    intervalos = CHORDS[quality]
+    n = int(duration * samplerate)
+    out = np.zeros(n, dtype=np.float32)
+    for semitonos in intervalos:
+        pc = (root + semitonos) % 12
+        oct_extra = (root + semitonos) // 12
+        out += tone(note_hz(pc, octave + oct_extra), duration, samplerate)[:n]
+    peak = np.abs(out).max()
+    if peak > 0:
+        out = out / peak * 0.7
+    return out.astype(np.float32), tuple((root + s) % 12 for s in intervalos)
+
+
+def progression(
+    roots,
+    quality: str = "maj",
+    bar_seconds: float = 2.0,
+    samplerate: int = 48000,
+) -> tuple[np.ndarray, list[tuple[int, ...]]]:
+    """Encadena acordes; devuelve el audio y las notas de cada uno."""
+    trozos, notas = [], []
+    for root in roots:
+        audio, pcs = chord(root, quality, bar_seconds, samplerate)
+        trozos.append(audio)
+        notas.append(pcs)
+    return np.concatenate(trozos), notas
