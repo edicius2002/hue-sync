@@ -7,11 +7,25 @@ credenciales del bridge y nunca se versiona ni se hardcodea en el codigo.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+ENV_PREFIX = "HUEBPM_"
+"""Prefijo de las variables de entorno que pisan la configuracion.
+
+El nombre completo es PREFIJO + SECCION + CAMPO, todo en mayusculas:
+
+    HUEBPM_EFFECTS_ONSET_ACCENT=0.5
+    HUEBPM_RENDER_FPS=40
+    HUEBPM_ANALYSIS_ONSET_DELTA=4.5
+
+Sirve para iterar sobre un parametro sin tocar config.yaml, que es justo lo que
+se hace al afinar un efecto a ojo.
+"""
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.yaml"
@@ -199,7 +213,7 @@ class EffectsConfig:
     )
     """Un color por compas dentro de la frase, para el modo `bars`."""
 
-    onset_accent: float = 0.9
+    onset_accent: float = 0.5
     """Golpe de brillo extra en los onsets fuera de tiempo, de 0 a 1.
 
     Es aditivo sobre la envolvente del beat: lo que aporta son los redobles,
@@ -255,6 +269,9 @@ class Config:
     analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
     render: RenderConfig = field(default_factory=RenderConfig)
     effects: EffectsConfig = field(default_factory=EffectsConfig)
+    env_overrides: list[str] = field(default_factory=list)
+    """Que se piso desde el entorno. Se muestra al arrancar para que no haya
+    ajustes activos que uno no recuerde haber puesto."""
 
 
 def _apply(obj: Any, data: dict | None) -> Any:
@@ -276,17 +293,75 @@ def _apply(obj: Any, data: dict | None) -> Any:
     return obj
 
 
+def _coerce(texto: str, actual: Any) -> Any:
+    """Convierte el texto de la variable de entorno al tipo del campo."""
+    if isinstance(actual, bool):
+        return texto.strip().lower() in ("1", "true", "yes", "on", "si")
+    if isinstance(actual, int):
+        return int(texto)
+    if isinstance(actual, float):
+        return float(texto)
+    if isinstance(actual, (tuple, list)):
+        return json.loads(texto)
+    if texto.strip().lower() in ("none", "null", ""):
+        return None
+    if actual is None:
+        # Campos opcionales (device_index, device_name): se prueba el tipo mas
+        # restrictivo primero para no convertir un indice en cadena.
+        for conv in (int, float):
+            try:
+                return conv(texto)
+            except ValueError:
+                continue
+    return texto
+
+
+def apply_env_overrides(cfg: Config, entorno: dict[str, str] | None = None) -> list[str]:
+    """Pisa la configuracion con variables de entorno. Devuelve lo aplicado.
+
+    Devolver la lista y no aplicarlas en silencio es deliberado: una variable
+    con el nombre mal escrito que no hace nada es exactamente el tipo de fallo
+    silencioso que cuesta horas de depuracion a ojo.
+    """
+    entorno = os.environ if entorno is None else entorno
+    aplicados: list[str] = []
+    secciones = {
+        "AUDIO": cfg.audio,
+        "ANALYSIS": cfg.analysis,
+        "RENDER": cfg.render,
+        "EFFECTS": cfg.effects,
+    }
+    for clave, valor in entorno.items():
+        if not clave.startswith(ENV_PREFIX):
+            continue
+        resto = clave[len(ENV_PREFIX) :]
+        seccion, _, campo = resto.partition("_")
+        destino = secciones.get(seccion)
+        if destino is None:
+            raise ValueError(
+                f"{clave}: seccion desconocida {seccion!r}. "
+                f"Opciones: {', '.join(secciones)}"
+            )
+        nombre = campo.lower()
+        conocidos = {f.name for f in fields(destino)}
+        if nombre not in conocidos:
+            raise ValueError(f"{clave}: {seccion.lower()} no tiene el campo {nombre!r}")
+        setattr(destino, nombre, _coerce(valor, getattr(destino, nombre)))
+        aplicados.append(f"{seccion.lower()}.{nombre} = {valor}")
+    return sorted(aplicados)
+
+
 def load_config(path: Path | str | None = None) -> Config:
     path = Path(path) if path else DEFAULT_CONFIG_PATH
     cfg = Config()
-    if not path.exists():
-        return cfg
-    with path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh) or {}
-    _apply(cfg.audio, data.get("audio"))
-    _apply(cfg.analysis, data.get("analysis"))
-    _apply(cfg.render, data.get("render"))
-    _apply(cfg.effects, data.get("effects"))
+    if path.exists():
+        with path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+        _apply(cfg.audio, data.get("audio"))
+        _apply(cfg.analysis, data.get("analysis"))
+        _apply(cfg.render, data.get("render"))
+        _apply(cfg.effects, data.get("effects"))
+    cfg.env_overrides = apply_env_overrides(cfg)
     return cfg
 
 

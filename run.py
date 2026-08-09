@@ -93,7 +93,12 @@ def main() -> int:
     p_an.add_argument("--duration", type=float, default=None, help="analizar solo N segundos")
 
     args = parser.parse_args()
-    cfg = load_config(args.config)
+    try:
+        cfg = load_config(args.config)
+    except ValueError as exc:
+        # Errores de configuracion: el usuario necesita el mensaje, no la pila.
+        print(exc, file=sys.stderr)
+        return 2
 
     if args.command == "selftest":
         from huebpm.cli.selftest import run_selftest

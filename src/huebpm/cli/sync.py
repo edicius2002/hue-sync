@@ -78,6 +78,10 @@ def run_sync(
     print(f"Luces:  {'(dry-run, sin bridge)' if dry_run else f'{channel_count} canal(es)'}")
     print(f"Modo:   {effect.name}   render {cfg.render.fps:.0f} Hz   "
           f"compensacion {cfg.render.latency_compensation_ms:.0f} ms")
+    if cfg.env_overrides:
+        # Se muestran a proposito: un ajuste que crees activo y no lo esta, o
+        # uno que sigue puesto de una prueba anterior, cuesta horas.
+        print(f"Entorno: {'   '.join(cfg.env_overrides)}")
     print("Ctrl-C para salir.\n")
 
     limiter = RateLimiter(cfg.render.fps)

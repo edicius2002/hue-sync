@@ -59,6 +59,22 @@ py -3.11 -m venv .venv
 
 Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`.
 
+### Afinar sin editar ficheros
+
+Cualquier valor de `config.yaml` se puede pisar con una variable de entorno,
+con el patron `HUEBPM_<SECCION>_<CAMPO>`:
+
+```powershell
+$env:HUEBPM_EFFECTS_ONSET_ACCENT = "0.5"
+$env:HUEBPM_ANALYSIS_ONSET_DELTA = "4.5"
+.\.venv\Scripts\python.exe run.py sync
+```
+
+`sync` imprime al arrancar lo que viene del entorno. Es a proposito: un ajuste
+que crees activo y no lo esta, o uno que sigue puesto de una prueba de hace un
+rato, cuesta horas. Y un nombre mal escrito **falla en voz alta** en vez de
+ignorarse.
+
 ### Bridge (una sola vez)
 
 ```powershell

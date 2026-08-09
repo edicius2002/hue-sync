@@ -137,7 +137,9 @@ effects:
 
   # Golpe de brillo extra en los onsets fuera de tiempo. Aditivo sobre la
   # envolvente del beat, no la sustituye.
-  onset_accent: 0.9
+  # Cualquier valor de este fichero se puede pisar desde el entorno con
+  # HUEBPM_<SECCION>_<CAMPO>, p.ej. HUEBPM_EFFECTS_ONSET_ACCENT=0.5
+  onset_accent: 0.5
   # Cuanto blanquea el color el golpe. Es lo que de verdad lo hace visible con
   # una sola luz: subir solo el brillo apenas se percibe porque cerca de un
   # beat la envolvente ya esta alta y el acento se satura sin cambiar nada.

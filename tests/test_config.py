@@ -140,3 +140,50 @@ def test_area_id_es_opcional(tmp_path):
         encoding="utf-8",
     )
     assert load_hue_credentials(ruta).entertainment_area_id is None
+
+
+# --- variables de entorno ----------------------------------------------------
+
+
+def test_el_entorno_pisa_la_configuracion():
+    from huebpm.config import Config, apply_env_overrides
+
+    cfg = Config()
+    aplicados = apply_env_overrides(cfg, {"HUEBPM_EFFECTS_ONSET_ACCENT": "0.42"})
+    assert cfg.effects.onset_accent == 0.42
+    assert aplicados == ["effects.onset_accent = 0.42"]
+
+
+def test_se_ignora_lo_que_no_lleva_prefijo():
+    from huebpm.config import Config, apply_env_overrides
+
+    cfg = Config()
+    assert apply_env_overrides(cfg, {"PATH": "/x", "ONSET_ACCENT": "9"}) == []
+
+
+@pytest.mark.parametrize("campo,texto,esperado", [
+    ("HUEBPM_RENDER_FPS", "40", 40.0),
+    ("HUEBPM_AUDIO_BLOCKSIZE", "512", 512),
+    ("HUEBPM_ANALYSIS_CHROMA_PEAKS_ONLY", "false", False),
+    ("HUEBPM_AUDIO_DEVICE_NAME", "JBL Charge", "JBL Charge"),
+    ("HUEBPM_AUDIO_DEVICE_INDEX", "27", 27),
+    ("HUEBPM_AUDIO_DEVICE_INDEX", "none", None),
+])
+def test_coercion_de_tipos(campo, texto, esperado):
+    from huebpm.config import Config, apply_env_overrides
+
+    cfg = Config()
+    apply_env_overrides(cfg, {campo: texto})
+    seccion, nombre = campo[len("HUEBPM_"):].split("_", 1)
+    assert getattr(getattr(cfg, seccion.lower()), nombre.lower()) == esperado
+
+
+def test_una_variable_mal_escrita_falla_en_voz_alta():
+    """El fallo silencioso mas caro: un ajuste que crees activo y no lo esta."""
+    from huebpm.config import Config, apply_env_overrides
+
+    cfg = Config()
+    with pytest.raises(ValueError, match="onset_acento"):
+        apply_env_overrides(cfg, {"HUEBPM_EFFECTS_ONSET_ACENTO": "0.5"})
+    with pytest.raises(ValueError, match="seccion desconocida"):
+        apply_env_overrides(cfg, {"HUEBPM_EFECTOS_ONSET_ACCENT": "0.5"})
