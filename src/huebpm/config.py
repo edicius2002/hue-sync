@@ -285,6 +285,18 @@ class EffectsConfig:
     sustain_full_tonality: float = 0.20
     """A partir de aqui la puerta esta abierta del todo."""
 
+    sustain_max_step: float = 0.03
+    """Cambio maximo de brillo entre frames de render en `sustain`.
+
+    Arranca con el mismo 0.03 que `harmony_max_step` pero tiene nombre propio
+    a proposito: alli acota el pulso del modo armonia y aqui el de
+    sostenimiento. Afinar uno no debe mover el otro.
+
+    A 120 BPM y 50 fps el limite es 0.03 / (pi * 0.04) = 0.2387, o sea que el
+    brillo oscila 0.761-1.0 en sostenimiento pleno. No es plano; "continuo"
+    respira. Este parametro permite ajustar esa respiracion sin tocar
+    `harmony`."""
+
     saturation_boost: float = 1.15
     """Las luces Hue lavan los colores; un poco de saturacion extra compensa."""
 

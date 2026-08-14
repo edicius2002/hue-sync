@@ -65,6 +65,29 @@ def color_por_envolvente(ctx: RenderContext, brillo: float) -> tuple[float, floa
     return tuple(c * brillo for c in spectrum_color(ctx))
 
 
+def brillos_en_sostenido_pleno(cfg: EffectsConfig, bpm: float = 120.0) -> np.ndarray:
+    ctx = make_ctx(0.0, sustain=1.0, tonality=1.0, cfg=cfg, bpm=bpm)
+    efecto = get_effect("sustain")
+    paso = 1.0 / 50.0
+    return np.array(
+        [
+            max(
+                efecto.render(
+                    RenderContext(
+                        now=ANCHOR + i * paso,
+                        state=ctx.state,
+                        clock=ctx.clock,
+                        channel_count=1,
+                        cfg=cfg,
+                        render_fps=50.0,
+                    )
+                )[0]
+            )
+            for i in range(int(50 * 60 / bpm) + 1)
+        ]
+    )
+
+
 # --- sustain_mix: fronteras y producto ---------------------------------------
 
 
@@ -178,7 +201,7 @@ def test_cama_de_ruido_tambien_degrada_a_beat():
 def test_mezcla_uno_es_exactamente_brillo_continuo(fase):
     ctx = make_ctx(fase, sustain=1.0, tonality=1.0)
     assert sustain_mix(ctx) == 1.0
-    continuo = gentle_brightness(ctx, 1.0, ctx.cfg.harmony_max_step)
+    continuo = gentle_brightness(ctx, 1.0, ctx.cfg.sustain_max_step)
     obtenido = get_effect("sustain").render(ctx)[0]
     esperado = color_por_envolvente(ctx, continuo)
     assert obtenido == pytest.approx(esperado, abs=1e-12)
@@ -192,7 +215,7 @@ def test_la_mezcla_interpola_las_dos_envolventes():
     assert mezcla == pytest.approx(0.5)
 
     destello = beat_envelope(ctx)
-    continuo = gentle_brightness(ctx, 1.0, cfg.harmony_max_step)
+    continuo = gentle_brightness(ctx, 1.0, cfg.sustain_max_step)
     brillo = destello + (continuo - destello) * mezcla
     obtenido = get_effect("sustain").render(ctx)[0]
     assert obtenido == pytest.approx(color_por_envolvente(ctx, brillo), abs=1e-12)
@@ -233,7 +256,35 @@ def test_la_pendiente_se_acota_en_sostenido_pleno(bpm):
         for i in range(int(50 * 60 / bpm) + 1)
     ]
     saltos = np.abs(np.diff(brillos))
-    assert saltos.max() <= cfg.harmony_max_step + 0.002
+    assert saltos.max() <= cfg.sustain_max_step + 0.002
+
+
+def test_con_el_default_el_render_es_identico_al_de_antes():
+    """Con 0.03, sustain rinde igual que cuando reutilizaba harmony_max_step."""
+    cfg = EffectsConfig()
+    assert cfg.sustain_max_step == 0.03
+    assert cfg.sustain_max_step == cfg.harmony_max_step
+    for fase in FASES:
+        ctx = make_ctx(fase, sustain=1.0, tonality=1.0, cfg=cfg)
+        obtenido = get_effect("sustain").render(ctx)[0]
+        legado = color_por_envolvente(
+            ctx, gentle_brightness(ctx, 1.0, cfg.harmony_max_step)
+        )
+        assert obtenido == pytest.approx(legado, abs=1e-12)
+
+
+def test_sustain_max_step_mueve_la_pendiente_sin_que_harmony_la_mueva():
+    """Afinar harmony no toca sustain: son decisiones perceptuales distintas."""
+    saltos_base = np.abs(np.diff(brillos_en_sostenido_pleno(EffectsConfig())))
+    saltos_harmony = np.abs(
+        np.diff(brillos_en_sostenido_pleno(EffectsConfig(harmony_max_step=0.001)))
+    )
+    saltos_sustain = np.abs(
+        np.diff(brillos_en_sostenido_pleno(EffectsConfig(sustain_max_step=0.001)))
+    )
+    assert saltos_harmony == pytest.approx(saltos_base, abs=1e-12)
+    assert saltos_sustain.max() < saltos_base.max() - 0.01
+    assert saltos_sustain.max() <= 0.001 + 0.002
 
 
 def test_el_modo_esta_registrado():
