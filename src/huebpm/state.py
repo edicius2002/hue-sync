@@ -26,6 +26,20 @@ class AudioState:
     tonality: float = 0.0
     """0 = percusion o ruido, 1 = una nota sola. Es lo que evita colorear un
     redoble con un tono arbitrario."""
+    sustain: float = 0.0
+    """Cuanto se sostiene el sonido: 0 = transitorio o percusivo, 1 = sostenido.
+
+    Mide SOLO la envolvente temporal: cresta de la ODF, tasa de onsets,
+    variacion de energia por banda. NO dice nada de si lo sostenido es
+    armonico, y eso es deliberado: una cama de ruido o unos aplausos puntuan
+    alto aqui. Excluirlos es cosa del efecto, cruzando este valor con
+    `tonality` a traves de la puerta de EffectsConfig.
+
+    Publicarlo crudo y sin filtrar sigue la misma regla que `last_onset_time`:
+    el analisis mide y el efecto decide. Si el detector aplicara la puerta
+    necesitaria la tonalidad, que vive en otro modulo y corre a otra frecuencia
+    de frame (23.4 fps el chroma contra 187.5 la ODF).
+    """
     last_onset_time: float = -1e9
     """Instante del ultimo golpe fuera de tiempo, en tiempo de pared.
 

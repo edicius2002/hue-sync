@@ -259,6 +259,32 @@ class EffectsConfig:
     misma a cualquier tempo: la fase avanza (BPM/60)/fps por frame, asi que una
     profundidad comoda a 120 BPM parpadea a 174."""
 
+    sustain_min: float = 0.35
+    """Por debajo de esto no hay sostenido y el brillo lo lleva el beat.
+
+    PROVISIONAL: se calibra en T3 contra material real, cuando exista el
+    detector y se conozca el rango que produce de verdad. Fijarlo antes seria
+    inventarse una escala. Mismo camino que siguieron `min_confidence`,
+    `onset_delta` y `downbeat_min_confidence`, que salieron de medir."""
+    sustain_full: float = 0.65
+    """A partir de aqui el brillo es continuo del todo. Entre los dos se mezcla
+    progresivamente. PROVISIONAL, igual que `sustain_min`."""
+
+    sustain_min_tonality: float = 0.08
+    """Puerta de tonalidad: por debajo, sostenido sin armonia no cuenta.
+
+    Sin esta puerta una cama de ruido, unos aplausos o el hiss de un vinilo
+    puntuan alto en sostenido y encienden el modo, que es justo lo que no se
+    quiere: lo que se persigue son pads, cuerdas y organo, no cualquier
+    textura quieta.
+
+    Arranca con el mismo valor que `harmony_min_tonality` pero tiene nombre
+    propio a proposito: alli calibra "cuando fiarse de la armonia para el
+    COLOR" y aqui "cuando cambiar el comportamiento del BRILLO". Misma escala,
+    consecuencia distinta, se calibran por separado."""
+    sustain_full_tonality: float = 0.20
+    """A partir de aqui la puerta esta abierta del todo."""
+
     saturation_boost: float = 1.15
     """Las luces Hue lavan los colores; un poco de saturacion extra compensa."""
 
