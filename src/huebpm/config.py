@@ -124,6 +124,19 @@ class AnalysisConfig:
     para contar como fuera de tiempo. Los que caen en el beat ya los cubre la
     envolvente; acentuarlos otra vez solo duplica el mismo destello."""
 
+    sustain_window: float = 2.5
+    """Segundos de energia RMS cruda que mide SustainDetector."""
+    sustain_transition: float = 0.75
+    """Constante de la rampa de sostenimiento, en segundos y no en beats."""
+    sustain_energy_full: float = 0.20
+    """CV de energia que equivale a sostenimiento pleno."""
+    sustain_energy_zero: float = 0.43
+    """CV de energia que equivale a sostenimiento nulo.
+
+    La ventana 0.20..0.43 cubre 87.9% del CV de summer.wav y ninguno de
+    billie.wav; se expone porque hace falta contrastarla con mas material real.
+    """
+
     chroma_fft_size: int = 8192
     """Mucho mayor que el de la ODF a proposito: con 1024 los semitonos solo se
     resuelven por encima de 788 Hz, o sea que no sirve para las fundamentales.
@@ -178,7 +191,7 @@ class RenderConfig:
 @dataclass
 class EffectsConfig:
     mode: str = "combo"
-    """combo | beat_flash | spectrum"""
+    """combo | harmony | bars | beat_flash | spectrum | sustain | idle"""
 
     beat_attack: float = 0.08
     """Fraccion del beat que dura la subida ANTES del golpe.

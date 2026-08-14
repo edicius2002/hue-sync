@@ -76,6 +76,14 @@ analysis:
   # como fuera de tiempo. Los que caen en el beat ya los cubre la envolvente.
   onset_offbeat_margin: 0.15
 
+  # Sostenimiento: CV de la energia RMS cruda en una ventana temporal. La
+  # ventana 0.20..0.43 cubre 87.9% de summer.wav y 0% de billie.wav; se deja
+  # visible para contrastarla con mas material real antes de darla por final.
+  sustain_window: 2.5
+  sustain_transition: 0.75
+  sustain_energy_full: 0.20
+  sustain_energy_zero: 0.43
+
   # Chroma: reparto de energia entre las 12 clases de altura, para que el color
   # siga la armonia en vez del timbre. FFT propio y mucho mayor que el de la
   # ODF: con 1024 los semitonos solo se resuelven por encima de 788 Hz, o sea
@@ -106,7 +114,7 @@ analysis:
   downbeat_offset_hold: 8           # compases antes de mover el "1"
 
 effects:
-  mode: combo              # combo | harmony | bars | beat_flash | spectrum
+  mode: combo              # combo | harmony | bars | beat_flash | spectrum | sustain | idle
 
   # El brillo sube durante esta fraccion del beat ANTES del golpe. Es lo que
   # convierte el efecto en algo que se anticipa al ritmo en vez de reaccionar,
@@ -164,6 +172,15 @@ effects:
   # Subelo si lo quieres con pulso; la pendiente se acota sola segun el tempo.
   harmony_beat_depth: 0.0
   harmony_max_step: 0.03    # cambio maximo de brillo por frame de render
+
+  # Modo `sustain`: mezcla gradualmente el destello del beat con una respiracion
+  # suave cuando coinciden envolvente estable y tonalidad. Se calibra separado
+  # de `harmony`: aqui la tonalidad decide el brillo, no el color.
+  sustain_min: 0.35
+  sustain_full: 0.65
+  sustain_min_tonality: 0.08
+  sustain_full_tonality: 0.20
+  sustain_max_step: 0.03    # limite de cambio de brillo por frame
 
   saturation_boost: 1.15   # las luces Hue lavan los tonos mezclados
 
