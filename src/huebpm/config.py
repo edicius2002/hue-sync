@@ -291,8 +291,8 @@ class EffectsConfig:
     textura quieta.
 
     En summer.wav, 0.03 abre mezcla en 65.1% del tiempo; 0.06 solo lo hacia en
-    14.0%. Ruido blanco mide ~0.008, asi que queda fuera. Es distinto de
-    `harmony_min_tonality`: alli se decide el color y aqui el brillo."""
+    14.0%. El maximo medido de ruido blanco es 0.013, asi que queda fuera. Es
+    distinto de `harmony_min_tonality`: alli se decide el color y aqui el brillo."""
     sustain_full_tonality: float = 0.08
     """A partir de aqui la puerta esta abierta del todo.
 

@@ -291,7 +291,7 @@ que el resto de tiempos (`downbeat_accent`).
 cuando coinciden una envolvente estable y contenido tonal. El detector mide el
 CV de energia RMS cruda durante 2.5 s; entre 0.20 y 0.43 lo convierte en un
 nivel continuo. La puerta tonal va de 0.03 a 0.08: en `summer.wav` activa la
-mezcla el 65.1% del tiempo, mientras ruido blanco (~0.008) queda fuera. En
+mezcla el 65.1% del tiempo, mientras ruido blanco llega como maximo a 0.013 y queda fuera. En
 `billie.wav` sigue apagado porque su CV entero queda por encima de 0.43, que es
 la respuesta correcta para un tema seco y percusivo. El CV aun puede confundir
 compresion con textura; es un riesgo conocido que hay que comprobar con luces

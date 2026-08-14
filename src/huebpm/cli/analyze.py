@@ -68,7 +68,7 @@ def run_analyze(
         engine.feed(audio[offset : offset + block], offset, wall_t=t)
         state = engine.state
         sustain_samples.append(state.sustain)
-        mezcla = sustain_mix(
+        mix_frame = sustain_mix(
             RenderContext(
                 now=t,
                 state=state,
@@ -77,7 +77,7 @@ def run_analyze(
                 cfg=cfg.effects,
             )
         )
-        mix_samples.append(mezcla)
+        mix_samples.append(mix_frame)
         if lock_time is None and engine.clock.locked:
             lock_time = t
         # "Estable" = ultima vez que el tempo del reloj salto mas de un 2%. Es
@@ -100,7 +100,7 @@ def run_analyze(
                 print(f"{t:6.1f} {est.bpm:9.1f} {est.confidence:6.2f} {acf} {clock} "
                       f"{engine.bars.confidence:6.2f} "
                       f"{NOTE_NAMES[engine.chroma.dominant]:>5} "
-                      f"{engine.chroma.tonality:6.3f} {sustain:6.3f} {mezcla:6.3f}  "
+                      f"{engine.chroma.tonality:6.3f} {sustain:6.3f} {mix_frame:6.3f}  "
                       f"{barra:<12}")
 
     if lock_time:
@@ -119,7 +119,7 @@ def run_analyze(
 
     sustain = np.asarray(sustain_samples)
     if len(sustain):
-        mezcla = np.asarray(mix_samples)
+        mezclas = np.asarray(mix_samples)
         low = float(np.mean(sustain < 0.05))
         high = float(np.mean(sustain > 0.95))
         useful = float(np.mean((sustain >= 0.35) & (sustain <= 0.65)))
@@ -127,9 +127,9 @@ def run_analyze(
               f"maximo {sustain.max():.3f}")
         print(f"  bajo <0.05: {low:5.1%}   alto >0.95: {high:5.1%}   "
               f"banda util 0.35-0.65: {useful:5.1%}")
-        print("  referencia: summer recorre 87.9% del CV 0.20-0.43; billie, 0.0%")
-        print(f"Mezcla efectiva: media {mezcla.mean():.3f}, maximo {mezcla.max():.3f}, "
-              f"activa >0: {np.mean(mezcla > 0):5.1%}")
+        print("  referencia: sostenimiento alto = envolvente estable; mezcla >0 entra al modo")
+        print(f"Mezcla efectiva: media {mezclas.mean():.3f}, maximo {mezclas.max():.3f}, "
+              f"activa >0: {np.mean(mezclas > 0):5.1%}")
 
     bars = engine.bars
     print(f"\nCompas: confianza {bars.confidence:.3f} "

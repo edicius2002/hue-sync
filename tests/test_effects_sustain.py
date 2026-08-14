@@ -117,6 +117,11 @@ def test_tonalidad_baja_mezcla_cero():
     assert sustain_mix(make_ctx(sustain=1.0, tonality=0.02, cfg=cfg)) == 0.0
 
 
+def test_el_ruido_de_banda_ancha_queda_fuera_de_la_puerta():
+    """Ruido rosa mide hasta 0.023 de tonalidad; la puerta abre en 0.03."""
+    assert sustain_mix(make_ctx(sustain=1.0, tonality=0.023)) == 0.0
+
+
 def test_ambos_altos_mezcla_uno():
     cfg = EffectsConfig()
     assert sustain_mix(make_ctx(sustain=1.0, tonality=1.0, cfg=cfg)) == 1.0
