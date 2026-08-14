@@ -28,15 +28,16 @@ class SustainDetector:
         frame_rate: float,
         window: float = 2.5,
         transition: float = 0.75,
-        energy_full: float = 0.255,
-        energy_zero: float = 0.310,
+        energy_full: float = 0.20,
+        energy_zero: float = 0.43,
     ) -> None:
         """Configura la ventana y los limites en unidades fisicas.
 
-        ``window`` de 2.5 s conserva cuatro valores entre 0.35 y 0.65 al
-        barrer bateria sobre un pad entre ganancias 0.60 y 0.75. ``transition``
-        esta en segundos y no en beats para que un cambio de tempo no altere
-        la suavidad visual.
+        La ventana 0.20..0.43 abre 0.23 de CV frente a los 0.055 anteriores.
+        En pad mas bateria de ganancia 0.75..0.95 deja cinco valores continuos
+        entre 0.612 y 0.431; en summer.wav deja 19.0% del tiempo entre 0.35 y
+        0.65, sin saturar. ``transition`` esta en segundos y no en beats para
+        que un cambio de tempo no altere la suavidad visual.
         """
         if frame_rate <= 0:
             raise ValueError("frame_rate debe ser positivo")

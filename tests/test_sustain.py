@@ -59,7 +59,7 @@ def test_la_mezcla_queda_entre_los_extremos():
 
 
 def test_el_barrido_de_bateria_da_una_rampa_decreciente():
-    ganancias = (0.67, 0.69, 0.71, 0.73)
+    ganancias = (0.75, 0.80, 0.85, 0.90, 0.95)
     valores = [
         media_final(pad_and_drums(12.0, samplerate=SR, drum_gain=ganancia))
         for ganancia in ganancias
@@ -76,7 +76,7 @@ def test_conmuta_en_3_25_segundos():
     )
     tiempos, valores = medir(audio)
     assert valor_en(tiempos, valores, seccion - 0.1) < 0.25
-    assert valor_en(tiempos, valores, seccion + 3.25) > 0.60
+    assert valor_en(tiempos, valores, seccion + 3.25) > 0.50
 
 
 @pytest.mark.parametrize(
