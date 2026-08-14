@@ -207,3 +207,41 @@ def impulse_track(
     if peak > 0:
         out = out / peak * 0.7
     return out.astype(np.float32)
+
+
+# --- ground truth para sostenimiento ----------------------------------------
+
+
+def sustained_pad(
+    duration: float,
+    samplerate: int = 48000,
+    root: int = 0,
+) -> np.ndarray:
+    """Acorde largo de ataque lento para medir una envolvente estable."""
+    n = int(duration * samplerate)
+    t = np.arange(n) / samplerate
+    out = np.zeros(n, dtype=np.float32)
+    for semitonos in CHORDS["maj7"]:
+        out += tone(note_hz((root + semitonos) % 12, 3), duration, samplerate)[:n]
+    # El ataque de 300 ms evita que el material de prueba sea un click disfrazado.
+    attack = np.minimum(1.0, t / 0.3)
+    out *= attack.astype(np.float32)
+    peak = np.abs(out).max()
+    return (out / peak * 0.45).astype(np.float32) if peak else out
+
+
+def pad_and_drums(
+    duration: float,
+    bpm: float = 120.0,
+    samplerate: int = 48000,
+    drum_gain: float = 0.65,
+) -> np.ndarray:
+    """Mezcla con pad constante y bateria regular, para medir el caso mixto."""
+    pad = sustained_pad(duration, samplerate)
+    drums, _ = click_track(bpm, duration, samplerate)
+    return np.clip(pad + drum_gain * drums, -1.0, 1.0).astype(np.float32)
+
+
+def concatenate_sections(*sections: np.ndarray) -> np.ndarray:
+    """Une secciones conocidas para medir el tiempo de transicion."""
+    return np.concatenate(sections).astype(np.float32)
