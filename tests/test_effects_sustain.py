@@ -27,6 +27,16 @@ from huebpm.state import AudioState
 ANCHOR = 100.0
 FASES = (0.0, 0.25, 0.5, 0.75, 0.99)
 
+# Generado con sustain_max_step=0.03, sustain=1, tonality=1, 120 BPM / 50 fps.
+# Es el ancla historica: golden.py excluye sustain porque el modo no existia.
+RENDER_HISTORICO: dict[float, tuple[float, float, float]] = {
+    0.0: (0.783923076923, 0.339846153846, 0.093923076923),
+    0.25: (0.690349152401, 0.299280007390, 0.082711835451),
+    0.5: (0.596775227879, 0.258713860933, 0.071500593979),
+    0.75: (0.690349152401, 0.299280007390, 0.082711835451),
+    0.99: (0.783738430158, 0.339766105823, 0.093900954099),
+}
+
 
 def make_ctx(
     phase: float = 0.0,
@@ -237,40 +247,18 @@ def test_entre_golpes_el_sostenido_queda_mas_brillante_que_el_destello():
 def test_la_pendiente_se_acota_en_sostenido_pleno(bpm):
     """Misma razon que harmony: la fase avanza (BPM/60)/fps por frame."""
     cfg = EffectsConfig()
-    ctx = make_ctx(0.0, sustain=1.0, tonality=1.0, cfg=cfg, bpm=bpm)
-    efecto = get_effect("sustain")
-    paso = 1.0 / 50.0
-    brillos = [
-        max(
-            efecto.render(
-                RenderContext(
-                    now=ANCHOR + i * paso,
-                    state=ctx.state,
-                    clock=ctx.clock,
-                    channel_count=1,
-                    cfg=cfg,
-                    render_fps=50.0,
-                )
-            )[0]
-        )
-        for i in range(int(50 * 60 / bpm) + 1)
-    ]
-    saltos = np.abs(np.diff(brillos))
+    saltos = np.abs(np.diff(brillos_en_sostenido_pleno(cfg, bpm=bpm)))
     assert saltos.max() <= cfg.sustain_max_step + 0.002
 
 
 def test_con_el_default_el_render_es_identico_al_de_antes():
-    """Con 0.03, sustain rinde igual que cuando reutilizaba harmony_max_step."""
-    cfg = EffectsConfig()
-    assert cfg.sustain_max_step == 0.03
-    assert cfg.sustain_max_step == cfg.harmony_max_step
-    for fase in FASES:
-        ctx = make_ctx(fase, sustain=1.0, tonality=1.0, cfg=cfg)
-        obtenido = get_effect("sustain").render(ctx)[0]
-        legado = color_por_envolvente(
-            ctx, gentle_brightness(ctx, 1.0, cfg.harmony_max_step)
+    """Congela el render historico de sustain pleno. No mira harmony_max_step."""
+    efecto = get_effect("sustain")
+    for fase, esperado in RENDER_HISTORICO.items():
+        obtenido = efecto.render(make_ctx(fase, sustain=1.0, tonality=1.0))[0]
+        assert obtenido == pytest.approx(esperado, abs=1e-9), (
+            f"sustain cambio en fase {fase}"
         )
-        assert obtenido == pytest.approx(legado, abs=1e-12)
 
 
 def test_sustain_max_step_mueve_la_pendiente_sin_que_harmony_la_mueva():

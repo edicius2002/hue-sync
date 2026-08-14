@@ -293,9 +293,10 @@ class EffectsConfig:
     sostenimiento. Afinar uno no debe mover el otro.
 
     A 120 BPM y 50 fps el limite es 0.03 / (pi * 0.04) = 0.2387, o sea que el
-    brillo oscila 0.761-1.0 en sostenimiento pleno. No es plano; "continuo"
-    respira. Este parametro permite ajustar esa respiracion sin tocar
-    `harmony`."""
+    brillo oscila 0.761-1.0 en sostenimiento pleno. A 76 BPM es 0.377
+    (0.623-1.0) y a 174 BPM es 0.165 (0.835-1.0): acota la pendiente, no la
+    profundidad. No es plano; "continuo" respira. Este parametro permite
+    ajustar esa respiracion sin tocar `harmony`."""
 
     saturation_boost: float = 1.15
     """Las luces Hue lavan los colores; un poco de saturacion extra compensa."""
