@@ -215,6 +215,29 @@ def harmony_mix(ctx: RenderContext) -> float:
     return max(0.0, min(1.0, (ctx.state.tonality - minimo) / rango))
 
 
+def sustain_mix(ctx: RenderContext) -> float:
+    """Cuanto cruzar de destello a brillo continuo, 0..1.
+
+    Producto de dos rampas, no min(). min() crea un pliegue donde cambia la
+    restriccion activa, y las transiciones duras aqui se ven como fogonazo:
+    la misma razon, medida, que documenta `harmony_mix`. El producto es un
+    AND: si cualquiera de las dos esta baja, la mezcla cae a 0 y el modo
+    degrada a envolvente de beat.
+
+    La rampa de tonalidad es la que excluye camas de ruido y aplausos: el
+    detector publica sustain crudo, sin filtrar, y filtrarlo es trabajo de
+    este efecto.
+    """
+    cfg = ctx.cfg
+    rango_s = max(1e-6, cfg.sustain_full - cfg.sustain_min)
+    rango_t = max(1e-6, cfg.sustain_full_tonality - cfg.sustain_min_tonality)
+    sostenido = max(0.0, min(1.0, (ctx.state.sustain - cfg.sustain_min) / rango_s))
+    tonalidad = max(
+        0.0, min(1.0, (ctx.state.tonality - cfg.sustain_min_tonality) / rango_t)
+    )
+    return sostenido * tonalidad
+
+
 def blend(a: Color, b: Color, t: float) -> Color:
     return tuple(x + (y - x) * t for x, y in zip(a, b, strict=True))  # type: ignore[return-value]
 

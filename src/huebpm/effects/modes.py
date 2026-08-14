@@ -17,6 +17,7 @@ from .base import (
     saturate,
     scale,
     spectrum_color,
+    sustain_mix,
 )
 
 
@@ -125,10 +126,34 @@ class HarmonyEffect:
         return fill(scale(color, brillo), ctx.channel_count)
 
 
+class SustainEffect:
+    """Destello de beat que se vuelve brillo continuo con material sostenido.
+
+    Pads, cuerdas, organo: el destello por golpe se lee como parpadeo porque
+    el sonido no tiene transitorio. A 120 BPM y 50 fps la envolvente de pico
+    salta 0.150 por frame; por encima de ~0.03 el ojo lo percibe como
+    parpadeo. Se mezcla hacia `gentle_brightness` (profundidad 1, recortada
+    por `harmony_max_step`), que ya acota esa pendiente a cualquier tempo.
+
+    Con mezcla 0 el brillo es exactamente `beat_envelope`: degradacion segura
+    mientras el detector no este cableado (sustain arranca a 0) y tambien
+    cuando suena percusion o una cama de ruido.
+    """
+
+    name = "sustain"
+
+    def render(self, ctx: RenderContext) -> Channels:
+        mezcla = sustain_mix(ctx)
+        destello = beat_envelope(ctx)
+        continuo = gentle_brightness(ctx, 1.0, ctx.cfg.harmony_max_step)
+        brillo = destello + (continuo - destello) * mezcla
+        return fill(scale(spectrum_color(ctx), brillo), ctx.channel_count)
+
+
 EFFECTS = {
     e.name: e
     for e in (ComboEffect(), HarmonyEffect(), BarsEffect(),
-              BeatFlashEffect(), SpectrumEffect(), IdleEffect())
+              BeatFlashEffect(), SpectrumEffect(), IdleEffect(), SustainEffect())
 }
 
 
