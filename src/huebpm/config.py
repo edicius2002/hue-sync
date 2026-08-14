@@ -124,6 +124,19 @@ class AnalysisConfig:
     para contar como fuera de tiempo. Los que caen en el beat ya los cubre la
     envolvente; acentuarlos otra vez solo duplica el mismo destello."""
 
+    sustain_window: float = 2.5
+    """Segundos de energia RMS cruda que mide SustainDetector."""
+    sustain_transition: float = 0.75
+    """Constante de la rampa de sostenimiento, en segundos y no en beats."""
+    sustain_energy_full: float = 0.20
+    """CV de energia que equivale a sostenimiento pleno."""
+    sustain_energy_zero: float = 0.43
+    """CV de energia que equivale a sostenimiento nulo.
+
+    La ventana 0.20..0.43 cubre 87.9% del CV de summer.wav y ninguno de
+    billie.wav; se expone porque hace falta contrastarla con mas material real.
+    """
+
     chroma_fft_size: int = 8192
     """Mucho mayor que el de la ODF a proposito: con 1024 los semitonos solo se
     resuelven por encima de 788 Hz, o sea que no sirve para las fundamentales.
@@ -178,7 +191,7 @@ class RenderConfig:
 @dataclass
 class EffectsConfig:
     mode: str = "combo"
-    """combo | beat_flash | spectrum"""
+    """combo | harmony | bars | beat_flash | spectrum | sustain | idle"""
 
     beat_attack: float = 0.08
     """Fraccion del beat que dura la subida ANTES del golpe.
@@ -262,15 +275,14 @@ class EffectsConfig:
     sustain_min: float = 0.35
     """Por debajo de esto no hay sostenido y el brillo lo lleva el beat.
 
-    PROVISIONAL: se calibra en T3 contra material real, cuando exista el
-    detector y se conozca el rango que produce de verdad. Fijarlo antes seria
-    inventarse una escala. Mismo camino que siguieron `min_confidence`,
-    `onset_delta` y `downbeat_min_confidence`, que salieron de medir."""
+    Con `sustain_full=0.65`, el barrido pad mas bateria de 0.75 a 0.95 deja
+    cinco valores monotonos entre 0.612 y 0.431. El rango reserva transicion
+    visible, en vez de convertir el cambio en un umbral duro."""
     sustain_full: float = 0.65
     """A partir de aqui el brillo es continuo del todo. Entre los dos se mezcla
-    progresivamente. PROVISIONAL, igual que `sustain_min`."""
+    progresivamente."""
 
-    sustain_min_tonality: float = 0.08
+    sustain_min_tonality: float = 0.03
     """Puerta de tonalidad: por debajo, sostenido sin armonia no cuenta.
 
     Sin esta puerta una cama de ruido, unos aplausos o el hiss de un vinilo
@@ -278,12 +290,14 @@ class EffectsConfig:
     quiere: lo que se persigue son pads, cuerdas y organo, no cualquier
     textura quieta.
 
-    Arranca con el mismo valor que `harmony_min_tonality` pero tiene nombre
-    propio a proposito: alli calibra "cuando fiarse de la armonia para el
-    COLOR" y aqui "cuando cambiar el comportamiento del BRILLO". Misma escala,
-    consecuencia distinta, se calibran por separado."""
-    sustain_full_tonality: float = 0.20
-    """A partir de aqui la puerta esta abierta del todo."""
+    En summer.wav, 0.03 abre mezcla en 65.1% del tiempo; 0.06 solo lo hacia en
+    14.0%. El maximo medido de ruido blanco es 0.013, asi que queda fuera. Es
+    distinto de `harmony_min_tonality`: alli se decide el color y aqui el brillo."""
+    sustain_full_tonality: float = 0.08
+    """A partir de aqui la puerta esta abierta del todo.
+
+    Summer llega a 0.073 y conserva una mezcla parcial en vez de saltar a uno;
+    los pads sinteticos limpios llegan a 0.353 y la abren por completo."""
 
     sustain_max_step: float = 0.03
     """Cambio maximo de brillo entre frames de render en `sustain`.

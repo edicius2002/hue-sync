@@ -40,6 +40,10 @@ audio:
 analysis:
   min_bpm: 70.0
   max_bpm: 190.0
+  sustain_window: 3.0
+  sustain_transition: 1.2
+  sustain_energy_full: 0.25
+  sustain_energy_zero: 0.50
 render:
   fps: 40.0
 effects:
@@ -49,6 +53,10 @@ effects:
     assert cfg.audio.blocksize == 512
     assert cfg.analysis.min_bpm == 70.0
     assert cfg.analysis.max_bpm == 190.0
+    assert cfg.analysis.sustain_window == 3.0
+    assert cfg.analysis.sustain_transition == 1.2
+    assert cfg.analysis.sustain_energy_full == 0.25
+    assert cfg.analysis.sustain_energy_zero == 0.50
     assert cfg.render.fps == 40.0
     assert cfg.effects.mode == "beat_flash"
 

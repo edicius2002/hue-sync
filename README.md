@@ -57,7 +57,8 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe run.py sync --dry-run --mode beat_flash
 ```
 
-Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`.
+Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`,
+`sustain`, `idle`.
 
 ### Afinar sin editar ficheros
 
@@ -129,7 +130,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | harmony | bars | beat_flash | spectrum | idle
+           modes.py        combo | harmony | bars | beat_flash | spectrum | sustain | idle
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico
@@ -285,6 +286,16 @@ del beat y la luz enciende justo en el.
 compas y vuelve a empezar cada frase, asi que se ve el 4x4 de la musica en vez
 de un parpadeo uniforme. Ademas, en todos los modos el downbeat pega mas fuerte
 que el resto de tiempos (`downbeat_accent`).
+
+`sustain` es un modo nuevo y no cambia `combo`: solo deja el destello por beat
+cuando coinciden una envolvente estable y contenido tonal. El detector mide el
+CV de energia RMS cruda durante 2.5 s; entre 0.20 y 0.43 lo convierte en un
+nivel continuo. La puerta tonal va de 0.03 a 0.08: en `summer.wav` activa la
+mezcla el 65.1% del tiempo, mientras ruido blanco llega como maximo a 0.013 y queda fuera. En
+`billie.wav` sigue apagado porque su CV entero queda por encima de 0.43, que es
+la respuesta correcta para un tema seco y percusivo. El CV aun puede confundir
+compresion con textura; es un riesgo conocido que hay que comprobar con luces
+reales.
 
 Cuando no hay evidencia suficiente de donde cae el compas, los efectos degradan
 a tratar todos los beats por igual. Acentuar un tiempo al azar se ve peor que

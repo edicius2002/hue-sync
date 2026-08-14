@@ -109,7 +109,13 @@ class AnalysisEngine:
             lookahead=cfg.onset_lookahead,
             min_separation=cfg.onset_min_separation,
         )
-        self.sustain = SustainDetector(self.spectral.frame_rate)
+        self.sustain = SustainDetector(
+            self.spectral.frame_rate,
+            window=cfg.sustain_window,
+            transition=cfg.sustain_transition,
+            energy_full=cfg.sustain_energy_full,
+            energy_zero=cfg.sustain_energy_zero,
+        )
         self.chroma = ChromaAnalyzer(
             samplerate,
             fft_size=cfg.chroma_fft_size,
