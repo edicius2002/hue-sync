@@ -133,7 +133,7 @@ class SustainEffect:
     el sonido no tiene transitorio. A 120 BPM y 50 fps la envolvente de pico
     salta 0.150 por frame; por encima de ~0.03 el ojo lo percibe como
     parpadeo. Se mezcla hacia `gentle_brightness` (profundidad 1, recortada
-    por `harmony_max_step`), que ya acota esa pendiente a cualquier tempo.
+    por `sustain_max_step`), que ya acota esa pendiente a cualquier tempo.
 
     Con mezcla 0 el brillo es exactamente `beat_envelope`: degradacion segura
     mientras el detector no este cableado (sustain arranca a 0) y tambien
@@ -145,7 +145,7 @@ class SustainEffect:
     def render(self, ctx: RenderContext) -> Channels:
         mezcla = sustain_mix(ctx)
         destello = beat_envelope(ctx)
-        continuo = gentle_brightness(ctx, 1.0, ctx.cfg.harmony_max_step)
+        continuo = gentle_brightness(ctx, 1.0, ctx.cfg.sustain_max_step)
         brillo = destello + (continuo - destello) * mezcla
         return fill(scale(spectrum_color(ctx), brillo), ctx.channel_count)
 
