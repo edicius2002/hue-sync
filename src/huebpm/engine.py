@@ -21,6 +21,7 @@ from .analysis.chroma import ChromaAnalyzer
 from .analysis.downbeat import BarTracker
 from .analysis.odf import SpectralAnalyzer
 from .analysis.onsets import OnsetDetector
+from .analysis.sustain import SustainDetector
 from .analysis.tempo import TempoTracker
 from .config import AnalysisConfig
 from .state import AudioState, StatePublisher
@@ -108,6 +109,7 @@ class AnalysisEngine:
             lookahead=cfg.onset_lookahead,
             min_separation=cfg.onset_min_separation,
         )
+        self.sustain = SustainDetector(self.spectral.frame_rate)
         self.chroma = ChromaAnalyzer(
             samplerate,
             fft_size=cfg.chroma_fft_size,
@@ -150,8 +152,10 @@ class AnalysisEngine:
         # El tempo se sigue sobre todo con graves; el espectro completo entra
         # con poco peso, solo para no perder el pulso en pasajes sin bombo.
         w_low, w_full = self.cfg.tempo_low_weight, self.cfg.tempo_full_weight
+        sustain = 0.0
         for f in frames:
             self.tempo.push(w_low * f.flux_low + w_full * f.flux, f.t)
+            sustain = self.sustain.push(f)
         self._frames_analyzed += len(frames)
 
         self._detect_onsets(frames)
@@ -197,6 +201,7 @@ class AnalysisEngine:
                 bands=band_levels,
                 chroma_hue=self.chroma.hue,
                 tonality=self.chroma.tonality,
+                sustain=sustain,
                 last_onset_time=self._last_onset_time,
                 last_onset_strength=self._last_onset_strength,
                 rms=rms,
