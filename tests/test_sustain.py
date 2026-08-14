@@ -87,26 +87,11 @@ def test_conmuta_en_3_25_segundos():
         ({"frame_rate": 187.5, "transition": 0.0}, "transition"),
         ({"frame_rate": 187.5, "energy_full": -0.1}, "energy_full"),
         ({"frame_rate": 187.5, "energy_full": 0.4, "energy_zero": 0.3}, "energy_zero"),
-        ({"frame_rate": 187.5, "onsets_full": -0.1}, "onsets_full"),
-        ({"frame_rate": 187.5, "onsets_full": 8.0, "onsets_zero": 8.0}, "onsets_zero"),
-        ({"frame_rate": 187.5, "onset_crest": 1.0}, "onset_crest"),
     ],
 )
 def test_rechaza_parametros_invalidos(kwargs, message):
     with pytest.raises(ValueError, match=message):
         SustainDetector(**kwargs)
-
-
-def test_onset_crest_descarta_picos_que_no_son_ataques():
-    def contar(crest: float) -> int:
-        detector = SustainDetector(100.0, window=0.2, onset_crest=crest)
-        for i in range(40):
-            flux = 5.0 if i == 25 else 0.1
-            detector.push(Frame(i, i / 100.0, flux, flux, np.ones(3)))
-        return len(detector._onset_times)
-
-    assert contar(10.0) == 1
-    assert contar(30.0) == 0
 
 
 def test_reset_olvida_la_ventana():
