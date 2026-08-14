@@ -1,0 +1,6 @@
+# Finales de linea normalizados a LF en el repositorio.
+#
+# Sin esto, un checkout en Windows deja CRLF en el worktree mientras el indice
+# guarda LF, y cada fichero aparece modificado entero: 5772 lineas de ruido en
+# 35 ficheros. Con varios agentes editando en paralelo, todo colisiona con todo.
+* text=auto eol=lf
