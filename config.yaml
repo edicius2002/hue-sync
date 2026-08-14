@@ -175,11 +175,12 @@ effects:
 
   # Modo `sustain`: mezcla gradualmente el destello del beat con una respiracion
   # suave cuando coinciden envolvente estable y tonalidad. Se calibra separado
-  # de `harmony`: aqui la tonalidad decide el brillo, no el color.
+  # de `harmony`: aqui la tonalidad decide el brillo, no el color. En summer,
+  # 0.03 abre el modo 65.1% del tiempo; ruido blanco (~0.008) sigue fuera.
   sustain_min: 0.35
   sustain_full: 0.65
-  sustain_min_tonality: 0.08
-  sustain_full_tonality: 0.20
+  sustain_min_tonality: 0.03
+  sustain_full_tonality: 0.08
   sustain_max_step: 0.03    # limite de cambio de brillo por frame
 
   saturation_boost: 1.15   # las luces Hue lavan los tonos mezclados

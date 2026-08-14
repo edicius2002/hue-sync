@@ -114,7 +114,7 @@ def test_tonalidad_baja_mezcla_cero():
     cfg = EffectsConfig()
     assert sustain_mix(make_ctx(sustain=1.0, tonality=0.0, cfg=cfg)) == 0.0
     assert sustain_mix(make_ctx(sustain=1.0, tonality=cfg.sustain_min_tonality, cfg=cfg)) == 0.0
-    assert sustain_mix(make_ctx(sustain=1.0, tonality=0.04, cfg=cfg)) == 0.0
+    assert sustain_mix(make_ctx(sustain=1.0, tonality=0.02, cfg=cfg)) == 0.0
 
 
 def test_ambos_altos_mezcla_uno():
@@ -181,9 +181,9 @@ def test_mezcla_acotada_a_cero_uno():
         (0.0, 1.0),
         (1.0, 0.0),
         (0.35, 1.0),
-        (1.0, 0.08),
+        (1.0, 0.03),
         (0.34, 1.0),
-        (1.0, 0.07),
+        (1.0, 0.02),
     ],
 )
 def test_mezcla_cero_rinde_exactamente_como_envolvente_de_beat(fase, sustain, tonality):
@@ -197,7 +197,7 @@ def test_mezcla_cero_rinde_exactamente_como_envolvente_de_beat(fase, sustain, to
 
 def test_cama_de_ruido_tambien_degrada_a_beat():
     """Sustain crudo al maximo no enciende el modo si no hay armonia."""
-    ctx = make_ctx(0.5, sustain=1.0, tonality=0.04)
+    ctx = make_ctx(0.5, sustain=1.0, tonality=0.008)
     assert sustain_mix(ctx) == 0.0
     obtenido = get_effect("sustain").render(ctx)[0]
     esperado = color_por_envolvente(ctx, beat_envelope(ctx))
