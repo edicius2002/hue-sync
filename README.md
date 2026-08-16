@@ -58,7 +58,7 @@ py -3.11 -m venv .venv
 ```
 
 Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`,
-`sustain`, `dual`, `idle`.
+`sustain`, `roles`, `idle`.
 
 ### Afinar sin editar ficheros
 
@@ -130,7 +130,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | harmony | bars | beat_flash | spectrum | sustain | dual | idle
+           modes.py        combo | harmony | bars | beat_flash | spectrum | sustain | roles | idle
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico
@@ -277,12 +277,13 @@ color dice que suena** (mezcla de graves/medios/agudos) y **el brillo dice
 cuando** (envolvente del beat). Juntarlas produce un estrobo; separarlas se lee
 como musica.
 
-`dual` aprovecha esa separacion con las dos luces del area: la pared lateral
-recibe `combo` para marcar **cuando** cae el beat y el techo recibe `harmony`
-para dejar ver **que** acorde suena sin competir con el pulso. Si el area solo
-tiene un canal, degrada exactamente a `combo`. `wall_channel` y
-`ceiling_channel` son el orden de insercion del bridge, no una descripcion
-geometrica: hay que identificar cada luz a ojo antes de asignarlos.
+`roles` generaliza esa separacion a cualquier area: `channel_roles` asigna un
+rol por canal y en el mismo orden de insercion del bridge. `pulso` usa `combo`,
+`armonia` usa `harmony`, `espectro` usa `spectrum` y `sostenido` usa `sustain`.
+Asi la pared puede marcar **cuando** cae el beat y una luz cenital puede dejar
+ver **que** acorde suena, sin asumir una geometria ni un numero de luces. Si la
+lista no describe todos los canales o contiene un rol invalido, degrada a
+`combo` entero para no dejar una luz con el color anterior.
 
 La envolvente se calcula de la *fase* del beat, no de eventos "hubo un beat".
 Por eso puede subir el brillo durante la fraccion `beat_attack` ANTERIOR al

@@ -191,7 +191,7 @@ class RenderConfig:
 @dataclass
 class EffectsConfig:
     mode: str = "combo"
-    """combo | harmony | bars | beat_flash | spectrum | sustain | idle"""
+    """combo | harmony | bars | beat_flash | spectrum | sustain | roles | idle"""
 
     beat_attack: float = 0.08
     """Fraccion del beat que dura la subida ANTES del golpe.
@@ -213,14 +213,13 @@ class EffectsConfig:
     idle_brightness: float = 0.07
     """Estado en reposo cuando no suena nada: tenue y fijo, nunca apagado."""
 
-    wall_channel: int = 0
-    """Canal de la pared en `dual`, por orden de insercion en el area.
+    channel_roles: tuple[str, ...] = ("pulso", "armonia")
+    """Rol de cada canal en `roles`, en el mismo orden que el area.
 
-    No describe una geometria: el bridge enumera las luces segun como se
-    anadieron al area. Hay que identificar cada una a ojo antes de asignarla.
+    El indice de la tupla es el channel_id del bridge, no una posicion
+    geometrica. Una tupla evita que un override mutable cambie la configuracion
+    compartida mientras el loop de render la consulta a 50 fps.
     """
-    ceiling_channel: int = 1
-    """Canal del techo en `dual`, con la misma convencion de insercion."""
 
     downbeat_accent: float = 0.35
     """Cuanto mas brillante es el "1" del compas que los demas tiempos.
@@ -374,6 +373,8 @@ def _apply(obj: Any, data: dict | None) -> Any:
             value = tuple(float(x) for x in value)
         elif key == "phrase_palette":
             value = tuple(tuple(float(x) for x in c) for c in value)
+        elif key == "channel_roles":
+            value = tuple(str(role) for role in value)
         setattr(obj, key, value)
     return obj
 
@@ -431,7 +432,10 @@ def apply_env_overrides(cfg: Config, entorno: dict[str, str] | None = None) -> l
         conocidos = {f.name for f in fields(destino)}
         if nombre not in conocidos:
             raise ValueError(f"{clave}: {seccion.lower()} no tiene el campo {nombre!r}")
-        setattr(destino, nombre, _coerce(valor, getattr(destino, nombre)))
+        convertido = _coerce(valor, getattr(destino, nombre))
+        if nombre == "channel_roles":
+            convertido = tuple(str(role) for role in convertido)
+        setattr(destino, nombre, convertido)
         aplicados.append(f"{seccion.lower()}.{nombre} = {valor}")
     return sorted(aplicados)
 
