@@ -272,15 +272,21 @@ class EffectsConfig:
     misma a cualquier tempo: la fase avanza (BPM/60)/fps por frame, asi que una
     profundidad comoda a 120 BPM parpadea a 174."""
 
-    sustain_min: float = 0.35
+    sustain_min: float = 0.55
     """Por debajo de esto no hay sostenido y el brillo lo lleva el beat.
 
-    Con `sustain_full=0.65`, el barrido pad mas bateria de 0.75 a 0.95 deja
-    cinco valores monotonos entre 0.612 y 0.431. El rango reserva transicion
-    visible, en vez de convertir el cambio en un umbral duro."""
-    sustain_full: float = 0.65
+    Medido sobre summer.wav, no sobre sintetico: durante todo el tramo
+    sostenido el detector vive entre 0.63 y 0.99, o sea POR ENCIMA del 0.65
+    provisional. Con 0.35/0.65 once de veintidos filas quedaban clavadas en
+    mezcla 1.000 y la curva era una meseta sin relieve. Con 0.55/0.95 solo
+    saturan dos y el recorrido queda entre 0.21 y 1.00, que es la gradacion
+    que el modo necesita para no verse como un interruptor."""
+    sustain_full: float = 0.95
     """A partir de aqui el brillo es continuo del todo. Entre los dos se mezcla
-    progresivamente."""
+    progresivamente.
+
+    0.95 y no 1.0 porque el maximo observado en material real es 0.988: un
+    techo en 1.0 seria inalcanzable y el modo nunca llegaria a pleno."""
 
     sustain_min_tonality: float = 0.03
     """Puerta de tonalidad: por debajo, sostenido sin armonia no cuenta.
@@ -290,14 +296,31 @@ class EffectsConfig:
     quiere: lo que se persigue son pads, cuerdas y organo, no cualquier
     textura quieta.
 
-    En summer.wav, 0.03 abre mezcla en 65.1% del tiempo; 0.06 solo lo hacia en
-    14.0%. El maximo medido de ruido blanco es 0.013, asi que queda fuera. Es
-    distinto de `harmony_min_tonality`: alli se decide el color y aqui el brillo."""
-    sustain_full_tonality: float = 0.08
+    En summer.wav, 0.03 abre mezcla en 60.1% del tiempo. El maximo medido sobre
+    ruido de banda ancha es 0.0228 (ruido rosa, el peor de diez generaciones;
+    la media es 0.005 y el maximo del ruido blanco 0.016). Se cita el MAXIMO y
+    no la media porque es el maximo el que decide si se cruza la puerta. El
+    margen es 1.3x y esta ajustado: bajarla a 0.020 dejaria pasar mezcla 0.19
+    sobre ruido puro, y el ruido sostenido puntua `sustain` cerca de 1.0 por
+    definicion, porque su envolvente es plana.
+
+    AVISO: la tonalidad de summer.wav recorre 0.020..0.073, o sea que SE SOLAPA
+    con ese maximo de ruido. Sobre material producido denso esta puerta no
+    puede separar musica de ruido de banda ancha; solo cubre el caso claro.
+    Ver tambien el limite conocido con ruido COLOREADO, que la cruza entero.
+
+    Es distinto de `harmony_min_tonality`: alli se decide el color y aqui el
+    brillo."""
+    sustain_full_tonality: float = 0.045
     """A partir de aqui la puerta esta abierta del todo.
 
-    Summer llega a 0.073 y conserva una mezcla parcial en vez de saltar a uno;
-    los pads sinteticos limpios llegan a 0.353 y la abren por completo."""
+    Con el 0.08 provisional la puerta no saturaba nunca sobre material real y
+    acababa siendo ELLA la que modulaba el brillo en vez del detector: medido
+    sobre summer.wav, la mezcla resultante era literalmente la rampa de
+    tonalidad, con el termino de sostenimiento clavado en 1.0 en catorce de
+    veintidos filas. Con 0.045 la puerta satura durante el nucleo del tramo
+    sostenido (t=8..14 s, tonalidad 0.045..0.073) y vuelve a ser lo que T0
+    queria: un veto, no la senal principal."""
 
     sustain_max_step: float = 0.03
     """Cambio maximo de brillo entre frames de render en `sustain`.

@@ -175,12 +175,22 @@ effects:
 
   # Modo `sustain`: mezcla gradualmente el destello del beat con una respiracion
   # suave cuando coinciden envolvente estable y tonalidad. Se calibra separado
-  # de `harmony`: aqui la tonalidad decide el brillo, no el color. En summer,
-  # 0.03 abre el modo 65.1% del tiempo; ruido blanco llega como maximo a 0.013.
-  sustain_min: 0.35
-  sustain_full: 0.65
+  # de `harmony`: aqui la tonalidad decide el brillo, no el color.
+  #
+  # Calibrado sobre summer.wav y billie.wav, no sobre sintetico. La rampa del
+  # sostenimiento va 0.55..0.95 porque en material real el detector vive entre
+  # 0.63 y 0.99: con la 0.35/0.65 provisional la mitad de las filas saturaban
+  # y la curva era una meseta. Resultado: mezcla activa 60.1% del tiempo en
+  # summer, 0.0% en billie (percusiva, es la respuesta correcta).
+  sustain_min: 0.55
+  sustain_full: 0.95
+  # La puerta tonal veta el sostenido SIN armonia (aplausos, hiss, vinilo).
+  # El minimo NO se toca: el maximo medido sobre ruido de banda ancha es
+  # 0.0228 (rosa, peor de 10 generaciones), asi que 0.03 deja solo 1.3x de
+  # margen. El techo baja a 0.045 para que la puerta sature durante el tramo
+  # sostenido y vuelva a ser un veto en vez de la senal que modula el brillo.
   sustain_min_tonality: 0.03
-  sustain_full_tonality: 0.08
+  sustain_full_tonality: 0.045
   sustain_max_step: 0.03    # limite de cambio de brillo por frame
 
   saturation_boost: 1.15   # las luces Hue lavan los tonos mezclados
