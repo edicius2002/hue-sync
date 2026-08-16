@@ -70,20 +70,22 @@ def test_dual_con_una_luz_degrada_a_combo_sin_cambiar_el_dict():
     assert get_effect("dual").render(ctx) == ComboEffect().render(ctx)
 
 
-def test_dual_techo_varia_menos_que_la_pared_con_el_beat():
-    """A 120 BPM/50 fps, pared varia 0.672452180295 y techo 0.000000000000."""
+def test_dual_techo_no_destella():
+    """A 120 BPM/50 fps el techo varia 0.000000; la cota 0.03 deja ese margen.
+
+    Por encima de 0.03 de brillo por frame a 50 fps el ojo lee parpadeo. La
+    cota es absoluta para que un techo que copie el destello de la pared no
+    pueda pasar por igualdad.
+    """
     ctx = make_ctx()
     dual = get_effect("dual")
-    pared = []
     techo = []
     for phase in np.arange(0.0, 1.001, 0.02):
         colores = dual.render(replace(ctx, now=ANCHOR + float(phase) * PERIOD))
-        pared.append(max(colores[ctx.cfg.wall_channel]))
         techo.append(max(colores[ctx.cfg.ceiling_channel]))
 
-    variacion_pared = max(pared) - min(pared)
     variacion_techo = max(techo) - min(techo)
-    assert variacion_techo <= variacion_pared
+    assert variacion_techo <= ctx.cfg.harmony_max_step
 
 
 def test_dual_respeta_el_orden_configurado_de_los_roles():
@@ -99,9 +101,19 @@ def test_dual_respeta_el_orden_configurado_de_los_roles():
     colores_normales = dual.render(normal)
     colores_intercambiados = dual.render(intercambiado)
 
-    assert colores_intercambiados[intercambiado.cfg.wall_channel] == colores_normales[
-        normal.cfg.wall_channel
-    ]
-    assert colores_intercambiados[intercambiado.cfg.ceiling_channel] == colores_normales[
-        normal.cfg.ceiling_channel
-    ]
+    assert colores_normales[0] == ComboEffect().render(normal)[0]
+    assert colores_normales[1] == HarmonyEffect().render(normal)[0]
+    assert colores_intercambiados[1] == ComboEffect().render(intercambiado)[0]
+    assert colores_intercambiados[0] == HarmonyEffect().render(intercambiado)[0]
+
+
+def test_dual_con_roles_en_el_mismo_canal_degrada_a_combo():
+    """Dos roles en una clave colapsarian el dict y dejarian una luz sin orden."""
+    ctx = make_ctx(cfg=EffectsConfig(wall_channel=0, ceiling_channel=0))
+    assert get_effect("dual").render(ctx) == ComboEffect().render(ctx)
+
+
+def test_dual_con_mas_de_dos_luces_degrada_a_combo():
+    """`dual` solo sabe repartir dos roles; no deja canales extra con color viejo."""
+    ctx = make_ctx(channel_count=3)
+    assert get_effect("dual").render(ctx) == ComboEffect().render(ctx)
