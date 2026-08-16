@@ -19,7 +19,7 @@ import time
 from ..audio.capture import LoopbackCapture, resolve_device
 from ..config import Config, load_hue_credentials
 from ..effects.base import RenderContext
-from ..effects.modes import IdleEffect, get_effect
+from ..effects.modes import IdleEffect, RolesEffect, get_effect
 from ..engine import AnalysisEngine, LiveAnalyzer
 from ..hue.backends import StreamError
 from ..hue.client import EntertainmentSession
@@ -78,6 +78,10 @@ def run_sync(
     print(f"Luces:  {'(dry-run, sin bridge)' if dry_run else f'{channel_count} canal(es)'}")
     print(f"Modo:   {effect.name}   render {cfg.render.fps:.0f} Hz   "
           f"compensacion {cfg.render.latency_compensation_ms:.0f} ms")
+    if isinstance(effect, RolesEffect) and not effect.is_valid(
+        channel_count, cfg.effects.channel_roles
+    ):
+        print("Aviso: roles no describe todos los canales; se usara combo.")
     if cfg.env_overrides:
         # Se muestran a proposito: un ajuste que crees activo y no lo esta, o
         # uno que sigue puesto de una prueba anterior, cuesta horas.
