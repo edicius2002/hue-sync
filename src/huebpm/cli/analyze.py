@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 
 from ..config import Config
+from ..effects.base import RenderContext, sustain_mix
 from ..engine import AnalysisEngine
 from ..testing.synth import NOTE_NAMES
 
@@ -55,14 +56,28 @@ def run_analyze(
     block = cfg.audio.blocksize
 
     print(f"\n{'t':>6} {'tracker':>9} {'conf':>6} {'acf':>6} {'reloj':>8} "
-          f"{'bconf':>6} {'nota':>5} {'tonal':>6}")
+          f"{'bconf':>6} {'nota':>5} {'tonal':>6} {'sosten':>6} {'mezcla':>6}  {'envolvente':<12}")
     trace_at = 0.0
     lock_time = None
     settled_at = None
     last_bpm = None
+    sustain_samples = []
+    mix_samples = []
     for offset in range(0, len(audio) - block, block):
         t = (offset + block) / rate
         engine.feed(audio[offset : offset + block], offset, wall_t=t)
+        state = engine.state
+        sustain_samples.append(state.sustain)
+        mix_frame = sustain_mix(
+            RenderContext(
+                now=t,
+                state=state,
+                clock=engine.clock,
+                channel_count=1,
+                cfg=cfg.effects,
+            )
+        )
+        mix_samples.append(mix_frame)
         if lock_time is None and engine.clock.locked:
             lock_time = t
         # "Estable" = ultima vez que el tempo del reloj salto mas de un 2%. Es
@@ -80,10 +95,13 @@ def run_analyze(
             acf = f"{curve.raw.max():6.3f}" if curve is not None else "    --"
             if est:
                 clock = f"{engine.clock.bpm:8.1f}" if engine.clock.bpm else "      --"
+                sustain = state.sustain
+                barra = "#" * int(round(sustain * 12))
                 print(f"{t:6.1f} {est.bpm:9.1f} {est.confidence:6.2f} {acf} {clock} "
                       f"{engine.bars.confidence:6.2f} "
                       f"{NOTE_NAMES[engine.chroma.dominant]:>5} "
-                      f"{engine.chroma.tonality:6.3f}")
+                      f"{engine.chroma.tonality:6.3f} {sustain:6.3f} {mix_frame:6.3f}  "
+                      f"{barra:<12}")
 
     if lock_time:
         print(f"\nPrimer enganche a los {lock_time:.1f} s")
@@ -98,6 +116,20 @@ def run_analyze(
             octave = abs(round(np.log2(ratio)) - np.log2(ratio)) < 0.04
             print(f"Esperado {expected_bpm:.1f}  ->  x{ratio:.3f}  "
                   f"{'octava valida' if octave else 'RELACION NO ENTERA'}")
+
+    sustain = np.asarray(sustain_samples)
+    if len(sustain):
+        mezclas = np.asarray(mix_samples)
+        low = float(np.mean(sustain < 0.05))
+        high = float(np.mean(sustain > 0.95))
+        useful = float(np.mean((sustain >= 0.35) & (sustain <= 0.65)))
+        print(f"\nSostenimiento: media {sustain.mean():.3f}, minimo {sustain.min():.3f}, "
+              f"maximo {sustain.max():.3f}")
+        print(f"  bajo <0.05: {low:5.1%}   alto >0.95: {high:5.1%}   "
+              f"banda util 0.35-0.65: {useful:5.1%}")
+        print("  referencia: sostenimiento alto = envolvente estable; mezcla >0 entra al modo")
+        print(f"Mezcla efectiva: media {mezclas.mean():.3f}, maximo {mezclas.max():.3f}, "
+              f"activa >0: {np.mean(mezclas > 0):5.1%}")
 
     bars = engine.bars
     print(f"\nCompas: confianza {bars.confidence:.3f} "

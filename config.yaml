@@ -63,6 +63,27 @@ analysis:
   silence_rms: 0.0001
   silence_timeout: 2.0
 
+  # Onsets: golpes sueltos que no caen en el pulso (redobles, stabs, palmas a
+  # contratiempo). La ODF ya los veia, solo se usaba para el tempo.
+  onset_window: 0.15
+  # Calibrado con ground truth de impulsos: a 3.5 da 100% de aciertos y 0% de
+  # falsos incluso con ruido, y en musica real detecta 3.7 golpes/s contra los
+  # 3.9 teoricos de hi-hats en corcheas a 117 BPM.
+  onset_delta: 3.5
+  onset_lookahead: 3          # ~16 ms de latencia de confirmacion
+  onset_min_separation: 0.05
+  # Cuanto tiene que alejarse del pulso, en fracciones de beat, para contar
+  # como fuera de tiempo. Los que caen en el beat ya los cubre la envolvente.
+  onset_offbeat_margin: 0.15
+
+  # Sostenimiento: CV de la energia RMS cruda en una ventana temporal. La
+  # ventana 0.20..0.43 cubre 87.9% de summer.wav y 0% de billie.wav; se deja
+  # visible para contrastarla con mas material real antes de darla por final.
+  sustain_window: 2.5
+  sustain_transition: 0.75
+  sustain_energy_full: 0.20
+  sustain_energy_zero: 0.43
+
   # Chroma: reparto de energia entre las 12 clases de altura, para que el color
   # siga la armonia en vez del timbre. FFT propio y mucho mayor que el de la
   # ODF: con 1024 los semitonos solo se resuelven por encima de 788 Hz, o sea
@@ -93,7 +114,7 @@ analysis:
   downbeat_offset_hold: 8           # compases antes de mover el "1"
 
 effects:
-  mode: combo              # combo | harmony | bars | beat_flash | spectrum
+  mode: combo              # combo | harmony | bars | beat_flash | spectrum | sustain | idle
 
   # El brillo sube durante esta fraccion del beat ANTES del golpe. Es lo que
   # convierte el efecto en algo que se anticipa al ritmo en vez de reaccionar,
@@ -122,6 +143,17 @@ effects:
     - [0.15, 0.9, 0.4]
     - [0.2, 0.35, 1.0]
 
+  # Golpe de brillo extra en los onsets fuera de tiempo. Aditivo sobre la
+  # envolvente del beat, no la sustituye.
+  # Cualquier valor de este fichero se puede pisar desde el entorno con
+  # HUEBPM_<SECCION>_<CAMPO>, p.ej. HUEBPM_EFFECTS_ONSET_ACCENT=0.5
+  onset_accent: 0.5
+  # Cuanto blanquea el color el golpe. Es lo que de verdad lo hace visible con
+  # una sola luz: subir solo el brillo apenas se percibe porque cerca de un
+  # beat la envolvente ya esta alta y el acento se satura sin cambiar nada.
+  onset_flash: 0.75
+  onset_decay: 0.13
+
   # Modo `harmony`: por debajo de min no hay armonia que seguir y el color sale
   # del espectro; por encima de full es armonia pura. Entre medias se mezcla
   # progresivamente, porque un corte seco produce un fogonazo al cruzarlo.
@@ -140,6 +172,26 @@ effects:
   # Subelo si lo quieres con pulso; la pendiente se acota sola segun el tempo.
   harmony_beat_depth: 0.0
   harmony_max_step: 0.03    # cambio maximo de brillo por frame de render
+
+  # Modo `sustain`: mezcla gradualmente el destello del beat con una respiracion
+  # suave cuando coinciden envolvente estable y tonalidad. Se calibra separado
+  # de `harmony`: aqui la tonalidad decide el brillo, no el color.
+  #
+  # Calibrado sobre summer.wav y billie.wav, no sobre sintetico. La rampa del
+  # sostenimiento va 0.55..0.95 porque en material real el detector vive entre
+  # 0.63 y 0.99: con la 0.35/0.65 provisional la mitad de las filas saturaban
+  # y la curva era una meseta. Resultado: mezcla activa 60.1% del tiempo en
+  # summer, 0.0% en billie (percusiva, es la respuesta correcta).
+  sustain_min: 0.55
+  sustain_full: 0.95
+  # La puerta tonal veta el sostenido SIN armonia (aplausos, hiss, vinilo).
+  # El minimo NO se toca: el maximo medido sobre ruido de banda ancha es
+  # 0.0228 (rosa, peor de 10 generaciones), asi que 0.03 deja solo 1.3x de
+  # margen. El techo baja a 0.045 para que la puerta sature durante el tramo
+  # sostenido y vuelva a ser un veto en vez de la senal que modula el brillo.
+  sustain_min_tonality: 0.03
+  sustain_full_tonality: 0.045
+  sustain_max_step: 0.03    # limite de cambio de brillo por frame
 
   saturation_boost: 1.15   # las luces Hue lavan los tonos mezclados
 

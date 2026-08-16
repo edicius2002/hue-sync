@@ -232,8 +232,3 @@ class ChromaAnalyzer:
     def dominant(self) -> int:
         """Clase con mas energia ahora mismo, sin estabilizar."""
         return int(np.argmax(self._chroma))
-
-    @property
-    def stable_class(self) -> int:
-        """Clase que gobierna el color, tras la histeresis."""
-        return self._stable_class

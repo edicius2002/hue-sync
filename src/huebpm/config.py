@@ -7,11 +7,25 @@ credenciales del bridge y nunca se versiona ni se hardcodea en el codigo.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+ENV_PREFIX = "HUEBPM_"
+"""Prefijo de las variables de entorno que pisan la configuracion.
+
+El nombre completo es PREFIJO + SECCION + CAMPO, todo en mayusculas:
+
+    HUEBPM_EFFECTS_ONSET_ACCENT=0.5
+    HUEBPM_RENDER_FPS=40
+    HUEBPM_ANALYSIS_ONSET_DELTA=4.5
+
+Sirve para iterar sobre un parametro sin tocar config.yaml, que es justo lo que
+se hace al afinar un efecto a ojo.
+"""
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.yaml"
@@ -94,6 +108,35 @@ class AnalysisConfig:
     silence_rms: float = 1e-4
     silence_timeout: float = 2.0
 
+    onset_window: float = 0.15
+    """Contexto para la media local del umbral adaptativo."""
+    onset_delta: float = 3.5
+    """Desviaciones por encima de la media local. Calibrado con ground truth de
+    impulsos: a 3.5 da 100% de aciertos y 0% de falsos incluso con ruido, y en
+    musica real detecta 3.7 golpes/s contra los 3.9 teoricos de un patron con
+    hi-hats en corcheas a 117 BPM."""
+    onset_lookahead: int = 3
+    """Frames de espera para confirmar el maximo. Es latencia (~16 ms a 187
+    fps) pero el render ya va con compensacion por delante."""
+    onset_min_separation: float = 0.05
+    onset_offbeat_margin: float = 0.15
+    """Cuanto tiene que alejarse un golpe del pulso, en fracciones de beat,
+    para contar como fuera de tiempo. Los que caen en el beat ya los cubre la
+    envolvente; acentuarlos otra vez solo duplica el mismo destello."""
+
+    sustain_window: float = 2.5
+    """Segundos de energia RMS cruda que mide SustainDetector."""
+    sustain_transition: float = 0.75
+    """Constante de la rampa de sostenimiento, en segundos y no en beats."""
+    sustain_energy_full: float = 0.20
+    """CV de energia que equivale a sostenimiento pleno."""
+    sustain_energy_zero: float = 0.43
+    """CV de energia que equivale a sostenimiento nulo.
+
+    La ventana 0.20..0.43 cubre 87.9% del CV de summer.wav y ninguno de
+    billie.wav; se expone porque hace falta contrastarla con mas material real.
+    """
+
     chroma_fft_size: int = 8192
     """Mucho mayor que el de la ODF a proposito: con 1024 los semitonos solo se
     resuelven por encima de 788 Hz, o sea que no sirve para las fundamentales.
@@ -148,7 +191,7 @@ class RenderConfig:
 @dataclass
 class EffectsConfig:
     mode: str = "combo"
-    """combo | beat_flash | spectrum"""
+    """combo | harmony | bars | beat_flash | spectrum | sustain | idle"""
 
     beat_attack: float = 0.08
     """Fraccion del beat que dura la subida ANTES del golpe.
@@ -183,6 +226,22 @@ class EffectsConfig:
     )
     """Un color por compas dentro de la frase, para el modo `bars`."""
 
+    onset_accent: float = 0.5
+    """Golpe de brillo extra en los onsets fuera de tiempo, de 0 a 1.
+
+    Es aditivo sobre la envolvente del beat: lo que aporta son los redobles,
+    stabs y palmas que no caen en el pulso y que la luz se comia enteros."""
+    onset_flash: float = 0.75
+    """Cuanto blanquea el color el golpe, de 0 a 1.
+
+    Es lo que de verdad hace visible un onset con una sola luz. Subir solo el
+    brillo apenas se percibe: cerca de un beat la envolvente ya esta alta y el
+    acento se satura sin cambiar nada. Un cambio de color se lee como un
+    impacto distinto del pulso aunque el brillo apenas se mueva."""
+    onset_decay: float = 0.13
+    """Constante de caida del acento, en segundos. Por debajo de ~0.1 el
+    destello dura 4 o 5 frames de render y pasa desapercibido."""
+
     harmony_min_tonality: float = 0.08
     """Por debajo no hay armonia fiable y el color viene del espectro.
 
@@ -213,6 +272,69 @@ class EffectsConfig:
     misma a cualquier tempo: la fase avanza (BPM/60)/fps por frame, asi que una
     profundidad comoda a 120 BPM parpadea a 174."""
 
+    sustain_min: float = 0.55
+    """Por debajo de esto no hay sostenido y el brillo lo lleva el beat.
+
+    Medido sobre summer.wav, no sobre sintetico: durante todo el tramo
+    sostenido el detector vive entre 0.63 y 0.99, o sea POR ENCIMA del 0.65
+    provisional. Con 0.35/0.65 once de veintidos filas quedaban clavadas en
+    mezcla 1.000 y la curva era una meseta sin relieve. Con 0.55/0.95 solo
+    saturan dos y el recorrido queda entre 0.21 y 1.00, que es la gradacion
+    que el modo necesita para no verse como un interruptor."""
+    sustain_full: float = 0.95
+    """A partir de aqui el brillo es continuo del todo. Entre los dos se mezcla
+    progresivamente.
+
+    0.95 y no 1.0 porque el maximo observado en material real es 0.988: un
+    techo en 1.0 seria inalcanzable y el modo nunca llegaria a pleno."""
+
+    sustain_min_tonality: float = 0.03
+    """Puerta de tonalidad: por debajo, sostenido sin armonia no cuenta.
+
+    Sin esta puerta una cama de ruido, unos aplausos o el hiss de un vinilo
+    puntuan alto en sostenido y encienden el modo, que es justo lo que no se
+    quiere: lo que se persigue son pads, cuerdas y organo, no cualquier
+    textura quieta.
+
+    En summer.wav, 0.03 abre mezcla en 60.1% del tiempo. El maximo medido sobre
+    ruido de banda ancha es 0.0228 (ruido rosa, el peor de diez generaciones;
+    la media es 0.005 y el maximo del ruido blanco 0.016). Se cita el MAXIMO y
+    no la media porque es el maximo el que decide si se cruza la puerta. El
+    margen es 1.3x y esta ajustado: bajarla a 0.020 dejaria pasar mezcla 0.19
+    sobre ruido puro, y el ruido sostenido puntua `sustain` cerca de 1.0 por
+    definicion, porque su envolvente es plana.
+
+    AVISO: la tonalidad de summer.wav recorre 0.020..0.073, o sea que SE SOLAPA
+    con ese maximo de ruido. Sobre material producido denso esta puerta no
+    puede separar musica de ruido de banda ancha; solo cubre el caso claro.
+    Ver tambien el limite conocido con ruido COLOREADO, que la cruza entero.
+
+    Es distinto de `harmony_min_tonality`: alli se decide el color y aqui el
+    brillo."""
+    sustain_full_tonality: float = 0.045
+    """A partir de aqui la puerta esta abierta del todo.
+
+    Con el 0.08 provisional la puerta no saturaba nunca sobre material real y
+    acababa siendo ELLA la que modulaba el brillo en vez del detector: medido
+    sobre summer.wav, la mezcla resultante era literalmente la rampa de
+    tonalidad, con el termino de sostenimiento clavado en 1.0 en catorce de
+    veintidos filas. Con 0.045 la puerta satura durante el nucleo del tramo
+    sostenido (t=8..14 s, tonalidad 0.045..0.073) y vuelve a ser lo que T0
+    queria: un veto, no la senal principal."""
+
+    sustain_max_step: float = 0.03
+    """Cambio maximo de brillo entre frames de render en `sustain`.
+
+    Arranca con el mismo 0.03 que `harmony_max_step` pero tiene nombre propio
+    a proposito: alli acota el pulso del modo armonia y aqui el de
+    sostenimiento. Afinar uno no debe mover el otro.
+
+    A 120 BPM y 50 fps el limite es 0.03 / (pi * 0.04) = 0.2387, o sea que el
+    brillo oscila 0.761-1.0 en sostenimiento pleno. A 76 BPM es 0.377
+    (0.623-1.0) y a 174 BPM es 0.165 (0.835-1.0): acota la pendiente, no la
+    profundidad. No es plano; "continuo" respira. Este parametro permite
+    ajustar esa respiracion sin tocar `harmony`."""
+
     saturation_boost: float = 1.15
     """Las luces Hue lavan los colores; un poco de saturacion extra compensa."""
 
@@ -223,6 +345,9 @@ class Config:
     analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
     render: RenderConfig = field(default_factory=RenderConfig)
     effects: EffectsConfig = field(default_factory=EffectsConfig)
+    env_overrides: list[str] = field(default_factory=list)
+    """Que se piso desde el entorno. Se muestra al arrancar para que no haya
+    ajustes activos que uno no recuerde haber puesto."""
 
 
 def _apply(obj: Any, data: dict | None) -> Any:
@@ -244,17 +369,75 @@ def _apply(obj: Any, data: dict | None) -> Any:
     return obj
 
 
+def _coerce(texto: str, actual: Any) -> Any:
+    """Convierte el texto de la variable de entorno al tipo del campo."""
+    if isinstance(actual, bool):
+        return texto.strip().lower() in ("1", "true", "yes", "on", "si")
+    if isinstance(actual, int):
+        return int(texto)
+    if isinstance(actual, float):
+        return float(texto)
+    if isinstance(actual, (tuple, list)):
+        return json.loads(texto)
+    if texto.strip().lower() in ("none", "null", ""):
+        return None
+    if actual is None:
+        # Campos opcionales (device_index, device_name): se prueba el tipo mas
+        # restrictivo primero para no convertir un indice en cadena.
+        for conv in (int, float):
+            try:
+                return conv(texto)
+            except ValueError:
+                continue
+    return texto
+
+
+def apply_env_overrides(cfg: Config, entorno: dict[str, str] | None = None) -> list[str]:
+    """Pisa la configuracion con variables de entorno. Devuelve lo aplicado.
+
+    Devolver la lista y no aplicarlas en silencio es deliberado: una variable
+    con el nombre mal escrito que no hace nada es exactamente el tipo de fallo
+    silencioso que cuesta horas de depuracion a ojo.
+    """
+    entorno = os.environ if entorno is None else entorno
+    aplicados: list[str] = []
+    secciones = {
+        "AUDIO": cfg.audio,
+        "ANALYSIS": cfg.analysis,
+        "RENDER": cfg.render,
+        "EFFECTS": cfg.effects,
+    }
+    for clave, valor in entorno.items():
+        if not clave.startswith(ENV_PREFIX):
+            continue
+        resto = clave[len(ENV_PREFIX) :]
+        seccion, _, campo = resto.partition("_")
+        destino = secciones.get(seccion)
+        if destino is None:
+            raise ValueError(
+                f"{clave}: seccion desconocida {seccion!r}. "
+                f"Opciones: {', '.join(secciones)}"
+            )
+        nombre = campo.lower()
+        conocidos = {f.name for f in fields(destino)}
+        if nombre not in conocidos:
+            raise ValueError(f"{clave}: {seccion.lower()} no tiene el campo {nombre!r}")
+        setattr(destino, nombre, _coerce(valor, getattr(destino, nombre)))
+        aplicados.append(f"{seccion.lower()}.{nombre} = {valor}")
+    return sorted(aplicados)
+
+
 def load_config(path: Path | str | None = None) -> Config:
     path = Path(path) if path else DEFAULT_CONFIG_PATH
     cfg = Config()
-    if not path.exists():
-        return cfg
-    with path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh) or {}
-    _apply(cfg.audio, data.get("audio"))
-    _apply(cfg.analysis, data.get("analysis"))
-    _apply(cfg.render, data.get("render"))
-    _apply(cfg.effects, data.get("effects"))
+    if path.exists():
+        with path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+        _apply(cfg.audio, data.get("audio"))
+        _apply(cfg.analysis, data.get("analysis"))
+        _apply(cfg.render, data.get("render"))
+        _apply(cfg.effects, data.get("effects"))
+    cfg.env_overrides = apply_env_overrides(cfg)
     return cfg
 
 

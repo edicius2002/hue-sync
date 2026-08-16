@@ -78,7 +78,11 @@ def main() -> int:
 
     p_sync = sub.add_parser("sync", help="sincroniza las luces con el audio")
     p_sync.add_argument("--duration", type=float, default=None)
-    p_sync.add_argument("--mode", default=None, help="combo | bars | beat_flash | spectrum")
+    p_sync.add_argument(
+        "--mode",
+        default=None,
+        help="combo | harmony | bars | beat_flash | spectrum | sustain | idle",
+    )
     p_sync.add_argument("--area", default=None)
     p_sync.add_argument("--dry-run", action="store_true", help="sin bridge, solo consola")
 
@@ -93,7 +97,12 @@ def main() -> int:
     p_an.add_argument("--duration", type=float, default=None, help="analizar solo N segundos")
 
     args = parser.parse_args()
-    cfg = load_config(args.config)
+    try:
+        cfg = load_config(args.config)
+    except ValueError as exc:
+        # Errores de configuracion: el usuario necesita el mensaje, no la pila.
+        print(exc, file=sys.stderr)
+        return 2
 
     if args.command == "selftest":
         from huebpm.cli.selftest import run_selftest

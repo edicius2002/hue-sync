@@ -57,7 +57,24 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe run.py sync --dry-run --mode beat_flash
 ```
 
-Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`.
+Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`,
+`sustain`, `idle`.
+
+### Afinar sin editar ficheros
+
+Cualquier valor de `config.yaml` se puede pisar con una variable de entorno,
+con el patron `HUEBPM_<SECCION>_<CAMPO>`:
+
+```powershell
+$env:HUEBPM_EFFECTS_ONSET_ACCENT = "0.5"
+$env:HUEBPM_ANALYSIS_ONSET_DELTA = "4.5"
+.\.venv\Scripts\python.exe run.py sync
+```
+
+`sync` imprime al arrancar lo que viene del entorno. Es a proposito: un ajuste
+que crees activo y no lo esta, o uno que sigue puesto de una prueba de hace un
+rato, cuesta horas. Y un nombre mal escrito **falla en voz alta** en vez de
+ignorarse.
 
 ### Bridge (una sola vez)
 
@@ -105,6 +122,7 @@ analysis/  odf.py          STFT -> flujo espectral + energia por bandas
            beatclock.py    PLL de fase, prediccion del proximo beat
            downbeat.py     histograma de energia -> cual beat es el "1"
            chroma.py       12 clases de altura -> color por armonia
+           onsets.py       peak-picking -> golpes fuera del pulso
            bands.py        normalizacion adaptativa graves/medios/agudos
 
 hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
@@ -112,7 +130,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | harmony | bars | beat_flash | spectrum | idle
+           modes.py        combo | harmony | bars | beat_flash | spectrum | sustain | idle
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico
@@ -269,6 +287,16 @@ compas y vuelve a empezar cada frase, asi que se ve el 4x4 de la musica en vez
 de un parpadeo uniforme. Ademas, en todos los modos el downbeat pega mas fuerte
 que el resto de tiempos (`downbeat_accent`).
 
+`sustain` es un modo nuevo y no cambia `combo`: solo deja el destello por beat
+cuando coinciden una envolvente estable y contenido tonal. El detector mide el
+CV de energia RMS cruda durante 2.5 s; entre 0.20 y 0.43 lo convierte en un
+nivel continuo. La puerta tonal va de 0.03 a 0.08: en `summer.wav` activa la
+mezcla el 65.1% del tiempo, mientras ruido blanco llega como maximo a 0.013 y queda fuera. En
+`billie.wav` sigue apagado porque su CV entero queda por encima de 0.43, que es
+la respuesta correcta para un tema seco y percusivo. El CV aun puede confundir
+compresion con textura; es un riesgo conocido que hay que comprobar con luces
+reales.
+
 Cuando no hay evidencia suficiente de donde cae el compas, los efectos degradan
 a tratar todos los beats por igual. Acentuar un tiempo al azar se ve peor que
 no acentuar ninguno.
@@ -276,6 +304,43 @@ no acentuar ninguno.
 Un efecto es una funcion pura de `RenderContext` a colores: no guarda estado,
 no sabe de audio ni de DTLS. Anadir un modo es anadir una clase a
 `effects/modes.py`.
+
+## Onsets fuera del pulso
+
+La ODF ya veia los redobles, stabs y palmas a contratiempo, pero solo se usaba
+para estimar el tempo, o sea que todo lo no periodico se descartaba. El
+detector de onsets los lee y anade un golpe de brillo sobre la envolvente del
+beat.
+
+Solo cuentan los que **no** caen en el pulso: los que si, ya los cubre la
+envolvente, y acentuarlos otra vez duplica el mismo destello.
+
+Medido con ground truth de impulsos en instantes exactos:
+
+| caso | aciertos | falsos positivos |
+|------|----------|------------------|
+| golpes regulares | 100% | 0% |
+| golpes irregulares | 100% | 0% |
+| irregulares + ruido blanco | 100% | 0% |
+
+Sobre musica real detecta 3.7 golpes/s en un patron con hi-hats en corcheas a
+117 BPM, contra los 3.9 teoricos.
+
+El umbral es el parametro que gobierna los falsos positivos: a 1.0 el ruido
+blanco dispara tres veces mas golpes que los que hay, a 3.5 ninguno.
+
+**El acento cambia el color, no solo el brillo.** Con una sola luz el brillo es
+un canal pobre para senalar un golpe: cerca de un beat la envolvente ya esta
+arriba y sumar acento se satura sin que se note nada. Blanqueando el color
+momentaneamente el golpe se lee como un impacto distinto del pulso. Medido
+sobre musica real, el acento esta activo el 42% del tiempo y en esos instantes
+el color se desplaza 0.158 de media en distancia RGB y el brillo sube un 71%.
+
+**El acento se evalua sin compensacion de latencia**, al reves que todo lo
+demas. El beat se predice; un golpe suelto no se puede predecir, cuando se
+detecta ya ocurrio. Mirandolo en el futuro llegaria ya apagado: con 130 ms de
+caida y 120 ms de compensacion se perderia mas de la mitad del golpe antes de
+mostrarlo.
 
 ## Que rinde el modo `harmony`
 

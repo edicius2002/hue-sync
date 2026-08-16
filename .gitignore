@@ -18,3 +18,8 @@ hue_config.json
 # Editores
 .vscode/
 .idea/
+
+# Estado de runtime de CCB: worktrees de agentes, sondas y memoria compartida.
+# Nunca se versiona. Ademas queda fuera del lint: son ficheros de usar y tirar
+# y hacian fallar `ruff check .`, que es el comando de verificacion del repo.
+.ccb/

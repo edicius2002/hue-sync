@@ -44,6 +44,12 @@ class RenderContext:
     render_fps: float = 50.0
     """Necesario para acotar la pendiente del brillo: cuanto avanza la fase
     entre dos frames depende del tempo, asi que la suavidad percibida tambien."""
+    now_real: float | None = None
+    """Tiempo de pared SIN compensar, para lo que es reactivo y no predictivo.
+
+    `now` va adelantado por `latency_compensation_ms` porque el reloj de beat
+    predice el futuro. Un onset no se puede predecir: cuando se detecta, ya
+    ocurrio. Evaluarlo en el futuro solo lo muestra ya apagado."""
     """False mientras no haya evidencia suficiente de donde cae el compas. Los
     efectos deben degradar a tratar todos los beats por igual, no inventarse
     un downbeat que no esta."""
@@ -102,6 +108,42 @@ def smooth_envelope(ctx: RenderContext) -> float:
     if not ctx.clock.locked:
         return 1.0
     return 0.5 + 0.5 * math.cos(2.0 * math.pi * ctx.clock.phase(ctx.now))
+
+
+def onset_accent(ctx: RenderContext) -> float:
+    """Golpe de brillo extra que decae tras un onset fuera de tiempo, 0..1.
+
+    Es funcion pura del tiempo transcurrido porque el estado publica el
+    instante del golpe y no un nivel ya calculado. Asi el efecto no guarda nada
+    y sigue siendo testeable sin motor.
+    """
+    if ctx.cfg.onset_accent <= 0.0:
+        return 0.0
+    # Sin compensar: el beat se predice, un golpe suelto no. Mirando el futuro
+    # el acento llegaria ya decaido, que es justo lo contrario de lo que hace
+    # falta. Con `onset_decay` de 90 ms y 120 ms de compensacion, se perderia
+    # el 74% del golpe antes de mostrarlo.
+    ahora = ctx.now_real if ctx.now_real is not None else ctx.now
+    transcurrido = ahora - ctx.state.last_onset_time
+    if transcurrido < 0.0 or transcurrido > 8.0 * ctx.cfg.onset_decay:
+        return 0.0
+    caida = math.exp(-transcurrido / max(1e-6, ctx.cfg.onset_decay))
+    return ctx.cfg.onset_accent * ctx.state.last_onset_strength * caida
+
+
+def apply_onset_flash(ctx: RenderContext, color: Color) -> Color:
+    """Blanquea el color en proporcion al acento del onset.
+
+    Con una sola luz, el brillo es un canal pobre para senalar un golpe: cerca
+    de un beat la envolvente ya esta arriba y sumar acento se satura sin que se
+    note. El color si esta libre, y un blanqueo momentaneo se lee como un
+    impacto claramente distinto del pulso.
+    """
+    fuerza = onset_accent(ctx)
+    if fuerza <= 0.0 or ctx.cfg.onset_flash <= 0.0:
+        return color
+    mezcla = min(1.0, fuerza * ctx.cfg.onset_flash / max(1e-6, ctx.cfg.onset_accent))
+    return blend(color, (1.0, 1.0, 1.0), mezcla)
 
 
 def gentle_brightness(ctx: RenderContext, depth: float, max_step: float) -> float:
@@ -171,6 +213,29 @@ def harmony_mix(ctx: RenderContext) -> float:
     minimo = ctx.cfg.harmony_min_tonality
     rango = max(1e-6, ctx.cfg.harmony_full_tonality - minimo)
     return max(0.0, min(1.0, (ctx.state.tonality - minimo) / rango))
+
+
+def sustain_mix(ctx: RenderContext) -> float:
+    """Cuanto cruzar de destello a brillo continuo, 0..1.
+
+    Producto de dos rampas, no min(). min() crea un pliegue donde cambia la
+    restriccion activa, y las transiciones duras aqui se ven como fogonazo:
+    la misma razon, medida, que documenta `harmony_mix`. El producto es un
+    AND: si cualquiera de las dos esta baja, la mezcla cae a 0 y el modo
+    degrada a envolvente de beat.
+
+    La rampa de tonalidad es la que excluye camas de ruido y aplausos: el
+    detector publica sustain crudo, sin filtrar, y filtrarlo es trabajo de
+    este efecto.
+    """
+    cfg = ctx.cfg
+    rango_s = max(1e-6, cfg.sustain_full - cfg.sustain_min)
+    rango_t = max(1e-6, cfg.sustain_full_tonality - cfg.sustain_min_tonality)
+    sostenido = max(0.0, min(1.0, (ctx.state.sustain - cfg.sustain_min) / rango_s))
+    tonalidad = max(
+        0.0, min(1.0, (ctx.state.tonality - cfg.sustain_min_tonality) / rango_t)
+    )
+    return sostenido * tonalidad
 
 
 def blend(a: Color, b: Color, t: float) -> Color:

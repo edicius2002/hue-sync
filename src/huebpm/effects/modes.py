@@ -6,15 +6,18 @@ from __future__ import annotations
 from .base import (
     Channels,
     RenderContext,
+    apply_onset_flash,
     beat_envelope,
     blend,
     fill,
     gentle_brightness,
     harmony_color,
     harmony_mix,
+    onset_accent,
     saturate,
     scale,
     spectrum_color,
+    sustain_mix,
 )
 
 
@@ -35,7 +38,9 @@ class BeatFlashEffect:
     name = "beat_flash"
 
     def render(self, ctx: RenderContext) -> Channels:
-        return fill(scale(ctx.cfg.idle_color, beat_envelope(ctx)), ctx.channel_count)
+        brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
+        color = apply_onset_flash(ctx, ctx.cfg.idle_color)
+        return fill(scale(color, brillo), ctx.channel_count)
 
 
 class SpectrumEffect:
@@ -60,9 +65,9 @@ class ComboEffect:
     name = "combo"
 
     def render(self, ctx: RenderContext) -> Channels:
-        return fill(
-            scale(spectrum_color(ctx), beat_envelope(ctx)), ctx.channel_count
-        )
+        brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
+        color = apply_onset_flash(ctx, spectrum_color(ctx))
+        return fill(scale(color, brillo), ctx.channel_count)
 
 
 class BarsEffect:
@@ -78,13 +83,19 @@ class BarsEffect:
     name = "bars"
 
     def render(self, ctx: RenderContext) -> Channels:
-        if not ctx.bar_locked:
-            return fill(scale(spectrum_color(ctx), beat_envelope(ctx)), ctx.channel_count)
+        if ctx.bar_locked:
+            paleta = ctx.cfg.phrase_palette
+            compas = int(ctx.phrase_phase * len(paleta)) % len(paleta)
+            base = saturate(paleta[compas], ctx.cfg.saturation_boost)
+        else:
+            base = spectrum_color(ctx)
 
-        paleta = ctx.cfg.phrase_palette
-        compas = int(ctx.phrase_phase * len(paleta)) % len(paleta)
-        color = saturate(paleta[compas], ctx.cfg.saturation_boost)
-        return fill(scale(color, beat_envelope(ctx)), ctx.channel_count)
+        # El acento va fuera del if a proposito: el camino de respaldo se
+        # quedaba sin onsets, que es exactamente el fallo que dejo `combo`
+        # sin la feature entera.
+        color = apply_onset_flash(ctx, base)
+        brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
+        return fill(scale(color, brillo), ctx.channel_count)
 
 
 class HarmonyEffect:
@@ -115,10 +126,34 @@ class HarmonyEffect:
         return fill(scale(color, brillo), ctx.channel_count)
 
 
+class SustainEffect:
+    """Destello de beat que se vuelve brillo continuo con material sostenido.
+
+    Pads, cuerdas, organo: el destello por golpe se lee como parpadeo porque
+    el sonido no tiene transitorio. A 120 BPM y 50 fps la envolvente de pico
+    salta 0.150 por frame; por encima de ~0.03 el ojo lo percibe como
+    parpadeo. Se mezcla hacia `gentle_brightness` (profundidad 1, recortada
+    por `sustain_max_step`), que ya acota esa pendiente a cualquier tempo.
+
+    Con mezcla 0 el brillo es exactamente `beat_envelope`: degradacion segura
+    mientras el detector no este cableado (sustain arranca a 0) y tambien
+    cuando suena percusion o una cama de ruido.
+    """
+
+    name = "sustain"
+
+    def render(self, ctx: RenderContext) -> Channels:
+        mezcla = sustain_mix(ctx)
+        destello = beat_envelope(ctx)
+        continuo = gentle_brightness(ctx, 1.0, ctx.cfg.sustain_max_step)
+        brillo = destello + (continuo - destello) * mezcla
+        return fill(scale(spectrum_color(ctx), brillo), ctx.channel_count)
+
+
 EFFECTS = {
     e.name: e
     for e in (ComboEffect(), HarmonyEffect(), BarsEffect(),
-              BeatFlashEffect(), SpectrumEffect(), IdleEffect())
+              BeatFlashEffect(), SpectrumEffect(), IdleEffect(), SustainEffect())
 }
 
 

@@ -78,6 +78,10 @@ def run_sync(
     print(f"Luces:  {'(dry-run, sin bridge)' if dry_run else f'{channel_count} canal(es)'}")
     print(f"Modo:   {effect.name}   render {cfg.render.fps:.0f} Hz   "
           f"compensacion {cfg.render.latency_compensation_ms:.0f} ms")
+    if cfg.env_overrides:
+        # Se muestran a proposito: un ajuste que crees activo y no lo esta, o
+        # uno que sigue puesto de una prueba anterior, cuesta horas.
+        print(f"Entorno: {'   '.join(cfg.env_overrides)}")
     print("Ctrl-C para salir.\n")
 
     limiter = RateLimiter(cfg.render.fps)
@@ -98,7 +102,7 @@ def run_sync(
                 # El efecto se evalua en el instante en que la luz mostrara
                 # esto, no en el que se calcula.
                 lookahead = now + comp
-                ctx = _context(engine, state, lookahead, channel_count, cfg)
+                ctx = _context(engine, state, lookahead, channel_count, cfg, now_real=now)
                 active = idle_effect if state.silent else effect
                 channels = active.render(ctx)
 
@@ -130,7 +134,7 @@ def run_sync(
     return 0
 
 
-def _context(engine, state, now, channel_count, cfg) -> RenderContext:  # noqa: ANN001
+def _context(engine, state, now, channel_count, cfg, now_real=None) -> RenderContext:  # noqa: ANN001
     """Construye el contexto del efecto, incluyendo la metrica del compas.
 
     Se calcula aqui y no dentro de cada efecto para que los efectos sigan
@@ -142,7 +146,7 @@ def _context(engine, state, now, channel_count, cfg) -> RenderContext:  # noqa: 
         return RenderContext(
             now=now, state=state, clock=clock,
             channel_count=channel_count, cfg=cfg.effects,
-            render_fps=cfg.render.fps,
+            render_fps=cfg.render.fps, now_real=now_real,
         )
 
     beat_phase = clock.phase(now)
@@ -154,6 +158,7 @@ def _context(engine, state, now, channel_count, cfg) -> RenderContext:  # noqa: 
         beat_in_bar=bars.beat_in_bar(index),
         bar_locked=True,
         render_fps=cfg.render.fps,
+        now_real=now_real,
     )
 
 
