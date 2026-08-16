@@ -157,6 +157,10 @@ class RolesEffect:
     cambie de indice: su pendiente queda limitada por `harmony_max_step`.
     Si la lista no describe exactamente el area, se conserva `combo` entero;
     enviar una parte dejaria los demas canales mostrando un color viejo.
+
+    El cache por rol solo evita renders repetidos. Su correccion depende de que
+    los efectos sean funciones puras de `ctx`; si uno gana estado entre frames,
+    el compositor debe volver a evaluarlo por cada canal.
     """
 
     name = "roles"

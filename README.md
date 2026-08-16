@@ -285,6 +285,10 @@ ver **que** acorde suena, sin asumir una geometria ni un numero de luces. Si la
 lista no describe todos los canales o contiene un rol invalido, degrada a
 `combo` entero para no dejar una luz con el color anterior.
 
+En una luz cenital usa `armonia` (maximo 0.030 de brillo por frame) o
+`espectro` (plano, 0.000). `pulso` y `sostenido` sin mezcla saltan 0.336 por
+frame a 120 BPM y estroboscopan la periferia, donde mas importa evitarlo.
+
 La envolvente se calcula de la *fase* del beat, no de eventos "hubo un beat".
 Por eso puede subir el brillo durante la fraccion `beat_attack` ANTERIOR al
 golpe. Combinado con `latency_compensation_ms`, el comando sale del PC antes

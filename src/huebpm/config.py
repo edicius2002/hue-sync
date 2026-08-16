@@ -219,6 +219,10 @@ class EffectsConfig:
     El indice de la tupla es el channel_id del bridge, no una posicion
     geometrica. Una tupla evita que un override mutable cambie la configuracion
     compartida mientras el loop de render la consulta a 50 fps.
+
+    En una luz cenital usa `armonia` (maximo 0.030 por frame) o `espectro`
+    (plano, 0.000). `pulso` y `sostenido` sin mezcla saltan 0.336 por frame a
+    120 BPM: llenan tambien la periferia, donde mas dispara la fotosensibilidad.
     """
 
     downbeat_accent: float = 0.35
