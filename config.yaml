@@ -114,7 +114,7 @@ analysis:
   downbeat_offset_hold: 8           # compases antes de mover el "1"
 
 effects:
-  mode: combo              # combo | harmony | bars | beat_flash | spectrum | sustain | idle
+  mode: combo              # combo | harmony | bars | beat_flash | spectrum | sustain | dual | idle
 
   # El brillo sube durante esta fraccion del beat ANTES del golpe. Es lo que
   # convierte el efecto en algo que se anticipa al ritmo en vez de reaccionar,
@@ -131,6 +131,11 @@ effects:
   # Reposo cuando no suena nada: tenue y fijo, nunca apagado.
   idle_color: [1.0, 0.55, 0.2]
   idle_brightness: 0.07
+
+  # Modo `dual`: estos son IDs por ORDEN de insercion en el area, no posiciones
+  # geometricas. Identifica cada luz a ojo antes de asignar pared y techo.
+  wall_channel: 0
+  ceiling_channel: 1
 
   # Cuanto mas brillante es el "1" del compas. A 0 todos los beats pesan igual,
   # que es lo que hacia que el efecto pareciera sincronizado pero no musical.

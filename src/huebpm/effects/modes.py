@@ -150,10 +150,36 @@ class SustainEffect:
         return fill(scale(spectrum_color(ctx), brillo), ctx.channel_count)
 
 
+class DualEffect:
+    """Pared con el pulso de `combo`, techo con la armonia de `harmony`.
+
+    El area real no es simetrica: la pared lateral hace visible cuando cae el
+    beat y el techo deja leer que acorde suena. Reutilizar ambos efectos evita
+    duplicar sus decisiones de timing, color y degradacion.
+    """
+
+    name = "dual"
+
+    def __init__(self) -> None:
+        self._combo = ComboEffect()
+        self._harmony = HarmonyEffect()
+
+    def render(self, ctx: RenderContext) -> Channels:
+        if ctx.channel_count < 2:
+            return self._combo.render(ctx)
+
+        pared = self._combo.render(ctx)[0]
+        techo = self._harmony.render(ctx)[0]
+        return {
+            ctx.cfg.wall_channel: pared,
+            ctx.cfg.ceiling_channel: techo,
+        }
+
+
 EFFECTS = {
     e.name: e
     for e in (ComboEffect(), HarmonyEffect(), BarsEffect(),
-              BeatFlashEffect(), SpectrumEffect(), IdleEffect(), SustainEffect())
+              BeatFlashEffect(), SpectrumEffect(), IdleEffect(), SustainEffect(), DualEffect())
 }
 
 

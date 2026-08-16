@@ -213,6 +213,15 @@ class EffectsConfig:
     idle_brightness: float = 0.07
     """Estado en reposo cuando no suena nada: tenue y fijo, nunca apagado."""
 
+    wall_channel: int = 0
+    """Canal de la pared en `dual`, por orden de insercion en el area.
+
+    No describe una geometria: el bridge enumera las luces segun como se
+    anadieron al area. Hay que identificar cada una a ojo antes de asignarla.
+    """
+    ceiling_channel: int = 1
+    """Canal del techo en `dual`, con la misma convencion de insercion."""
+
     downbeat_accent: float = 0.35
     """Cuanto mas brillante es el "1" del compas que los demas tiempos.
 
