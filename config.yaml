@@ -135,6 +135,9 @@ effects:
   # Modo `roles`: un rol por canal, en orden de insercion del area. No son
   # posiciones geometricas: identifica cada luz a ojo antes de asignarla.
   # pulso=combo, armonia=harmony, espectro=spectrum, sostenido=sustain.
+  # En luz cenital usa armonia (<=0.030/frame) o espectro (0.000 plano).
+  # pulso y sostenido sin mezcla saltan 0.336/frame a 120 BPM y estroboscopan
+  # la periferia, donde mas dispara la fotosensibilidad.
   channel_roles: [pulso, armonia]
 
   # Cuanto mas brillante es el "1" del compas. A 0 todos los beats pesan igual,

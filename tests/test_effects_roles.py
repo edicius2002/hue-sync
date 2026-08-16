@@ -132,6 +132,13 @@ def test_armonia_admite_respiracion_suave():
     assert saltos_de_canal(ctx, 1).max() <= MAX_STEP_ARMONIA
 
 
+@pytest.mark.parametrize("role", ("pulso", "sostenido"))
+def test_roles_ritmicos_superan_el_limite_antiparpadeo(role):
+    """A 120 BPM/50 fps, pulso y sostenido sin mezcla saltan 0.336 por frame."""
+    roles = ("armonia", role, "espectro")
+    assert saltos_de_canal(make_ctx(roles), 1).max() > MAX_STEP_ARMONIA
+
+
 @pytest.mark.parametrize(
     "roles,channel_count",
     [

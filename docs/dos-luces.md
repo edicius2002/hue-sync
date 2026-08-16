@@ -1,8 +1,13 @@
 # Dos luces en la misma area de Entertainment
 
-Investigacion y propuesta. No hay codigo detras de este documento: el
-transporte ya admite un color por canal, y hoy ese grado de libertad se tira
-a la basura.
+> Estado, 2026-08: analisis de diseno previo a `roles`. La configuracion vigente
+> es `effects.channel_roles`, no `wall_channel` / `ceiling_channel`; las
+> menciones posteriores a `dual` describen la propuesta historica. `sustain` ya
+> esta cableado en `engine.py`, aunque con mezcla cero degrada a beat y no es
+> seguro para una luz cenital.
+
+Investigacion y propuesta historica. El transporte ya admite un color por
+canal; `roles` es el compositor que hoy aprovecha ese grado de libertad.
 
 ## 1. Situacion
 
@@ -72,7 +77,7 @@ Disponibles hoy, publicados cada frame de analisis:
 |---|---|---|
 | `bands` (3,) | graves / medios / agudos, 0..1, pico adaptativo | si |
 | `chroma_hue`, `tonality` | armonia y fiabilidad tonal | si |
-| `sustain` | sostenimiento crudo 0..1 | el campo si; el detector **no esta cableado** en `engine.py` |
+| `sustain` | sostenimiento crudo 0..1 | si; detector cableado en `engine.py` |
 | `last_onset_time`, `last_onset_strength` | golpes fuera de pulso | si |
 | `bpm`, `locked`, `confidence` | tempo y enganche del PLL | si |
 | `flux`, `rms`, `silent` | energia / silencio | si |
@@ -121,9 +126,9 @@ agudo va a la pared; el techo respira, no estroboscopa.
 Antes de cualquier rol distinto hace falta un mapa `canal -> {pared,
 techo}`. Tres caminos, de mas barato a mas automatico:
 
-1. **Config manual.** Dos enteros (`wall_channel`, `ceiling_channel`) en
-   `EffectsConfig`. Coste: `config.py` + leerlos en el compositor. Riesgo
-   nulo sobre el render. El usuario se equivoca una vez y lo nota.
+1. **Config manual.** Una tupla `channel_roles` en `EffectsConfig`, en el
+   mismo orden que los canales. Riesgo nulo sobre el render. El usuario se
+   equivoca una vez y lo nota.
 2. **Identificar a ojo.** Un barrido que enciende los canales de uno en
    uno (hoy `huetest` manda el mismo color a todos). Cinco minutos, y el
    mapa deja de ser una apuesta. No toca efectos.
@@ -133,7 +138,7 @@ techo}`. Tres caminos, de mas barato a mas automatico:
    colocadas en el area de la app Hue; si el usuario las dejo en un
    monton, el auto-mapeo miente.
 
-Veredicto de la premisa: hacer (1) + (2) antes que cualquier efecto dual.
+Veredicto de la premisa: hacer (1) + (2) antes que cualquier reparto por roles.
 Sin eso, el resto de este documento pinta colores en el canal equivocado
 y se diagnostica como "el efecto no funciona".
 
@@ -181,9 +186,9 @@ armonia.
 * Armonia: `chroma_hue`, `tonality`, `harmony_mix`. Ya existen. Sin
   tonalidad suficiente el techo cae a `spectrum_color`, igual que el
   modo `harmony` a solas. Degradacion segura.
-* Sostenimiento: `state.sustain` existe, `SustainDetector` existe, **no
-  esta cableado**. Hoy el techo-sustain seria indistinguible del techo
-  con `beat_envelope`. No se puede proponer como primer paso.
+* Sostenimiento: `state.sustain` y `SustainDetector` estan cableados. Con
+  mezcla cero degrada a `beat_envelope`, asi que techo=`sostenido` sigue
+  estroboscopando en material percusivo y no es una opcion segura por defecto.
 
 **Geometria.** Esta es la que mejor encaja. La pared izquierda pega el
 golpe donde se mira el setup. El techo tiñe el cuarto con el acorde y
@@ -522,24 +527,17 @@ automatico, el dato queda ahi.
 
 Orden de trabajo, concreto:
 
-1. **Mapa de canales.** Config manual de `wall_channel` /
-   `ceiling_channel`, y una identificacion (barrido uno a uno) para no
-   adivinar. Sin esto no se calibra nada a ojo. Coste minimo, riesgo
-   nulo sobre el dorado. `rest.py` puede seguir tirando las posiciones
-   de momento.
-2. **Un compositor `dual` con un par fijo: `combo` en la pared,
-   `harmony` en el techo.** Delega a los modos actuales, toma `[0]`,
-   escribe dos canales. Con una sola luz, delega a `combo` y el
-   comportamiento historico no se mueve. Parametros de 4.6 desde el
-   primer dia: techo un poco mas bajo de brillo, pared con la saturacion
-   que ya trae `combo`. Esto es 4.2 + 4.6 + 4.7 (par unico).
+1. **Mapa de canales.** `channel_roles` en orden de canal, tras usar
+   `identify` para no adivinar. Sin esto no se calibra nada a ojo.
+2. **Compositor `roles`.** Asigna `pulso`, `armonia`, `espectro` o
+   `sostenido` por canal y degrada a `combo` si la lista no describe el area.
 3. **Desfase corto pared → techo (100-150 ms) como opcion apagada por
    defecto.** El techo usa `gentle_brightness` retrasada, no
    `beat_envelope`. Se enciende si el par estatico se queda corto. Esto
    es 4.5 / 5.1, no un modo nuevo.
-4. **Cuando `SustainDetector` este cableado**, probar techo = `sustain`
-   en vez de `harmony` en pads. No antes. Hoy la senal es siempre 0 y el
-   experimento mentiria.
+4. **Calibrar `sostenido` en pads.** El detector ya esta cableado, pero en
+   material percusivo su mezcla cae a cero y el efecto vuelve a destellar;
+   no asignarlo al techo sin una medicion especifica.
 
 Descartar, y no dejarlo "para mas adelante" como si fuera deuda:
 
