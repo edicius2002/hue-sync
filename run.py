@@ -81,7 +81,7 @@ def main() -> int:
     p_sync.add_argument(
         "--mode",
         default=None,
-        help="combo | harmony | bars | beat_flash | spectrum | sustain | idle",
+        help="combo | harmony | bars | beat_flash | spectrum | sustain | dual | idle",
     )
     p_sync.add_argument("--area", default=None)
     p_sync.add_argument("--dry-run", action="store_true", help="sin bridge, solo consola")

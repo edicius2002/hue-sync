@@ -157,9 +157,9 @@ class DualEffect:
     beat y el techo deja leer que acorde suena. Reutilizar ambos efectos evita
     duplicar sus decisiones de timing, color y degradacion.
 
-    Esta pensado solo para dos luces con dos IDs distintos. Fuera de ese par
-    cae a `combo` en todos los canales: asi no colapsa dos roles en una clave
-    ni deja luces extra mostrando un color viejo.
+    Esta pensado solo para dos luces con los IDs 0 y 1. Fuera de ese par cae a
+    `combo` en todos los canales: asi no colapsa dos roles en una clave ni deja
+    luces extra mostrando un color viejo.
     """
 
     name = "dual"
@@ -169,7 +169,10 @@ class DualEffect:
         self._harmony = HarmonyEffect()
 
     def render(self, ctx: RenderContext) -> Channels:
-        if ctx.channel_count != 2 or ctx.cfg.wall_channel == ctx.cfg.ceiling_channel:
+        if ctx.channel_count != 2 or {
+            ctx.cfg.wall_channel,
+            ctx.cfg.ceiling_channel,
+        } != {0, 1}:
             return self._combo.render(ctx)
 
         pared = self._combo.render(ctx)[0]

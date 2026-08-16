@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
+import pytest
 
 from huebpm.analysis.beatclock import BeatClock
 from huebpm.analysis.tempo import TempoEstimate
@@ -20,6 +21,8 @@ from huebpm.state import AudioState
 
 ANCHOR = 100.0
 PERIOD = 0.5
+MAX_STEP_TECHO = 0.03
+"""Por encima de este salto por frame a 50 fps el ojo lee parpadeo."""
 
 
 def make_ctx(phase: float = 0.0, *, channel_count: int = 2, cfg: EffectsConfig | None = None):
@@ -70,22 +73,37 @@ def test_dual_con_una_luz_degrada_a_combo_sin_cambiar_el_dict():
     assert get_effect("dual").render(ctx) == ComboEffect().render(ctx)
 
 
-def test_dual_techo_no_destella():
-    """A 120 BPM/50 fps el techo varia 0.000000; la cota 0.03 deja ese margen.
-
-    Por encima de 0.03 de brillo por frame a 50 fps el ojo lee parpadeo. La
-    cota es absoluta para que un techo que copie el destello de la pared no
-    pueda pasar por igualdad.
-    """
-    ctx = make_ctx()
+def saltos_de_techo(ctx: RenderContext) -> np.ndarray:
+    """Mide el cambio que vera la luz entre frames reales de render."""
+    frames = int(round(PERIOD * ctx.render_fps))
     dual = get_effect("dual")
-    techo = []
-    for phase in np.arange(0.0, 1.001, 0.02):
-        colores = dual.render(replace(ctx, now=ANCHOR + float(phase) * PERIOD))
-        techo.append(max(colores[ctx.cfg.ceiling_channel]))
+    brillos = np.array(
+        [
+            max(
+                dual.render(replace(ctx, now=ANCHOR + frame / ctx.render_fps))[
+                    ctx.cfg.ceiling_channel
+                ]
+            )
+            for frame in range(frames + 1)
+        ]
+    )
+    return np.abs(np.diff(brillos))
 
-    variacion_techo = max(techo) - min(techo)
-    assert variacion_techo <= ctx.cfg.harmony_max_step
+
+def test_dual_techo_no_supera_el_salto_por_frame():
+    """A 120 BPM/50 fps pared salta 0.336 y techo quieto 0.000000.
+
+    Se prueba profundidad 1 para que afinar `harmony_max_step` no pueda
+    desactivar el limite: el techo debe seguir sin superar 0.03 por frame.
+    """
+    ctx = make_ctx(cfg=EffectsConfig(harmony_beat_depth=1.0))
+    assert saltos_de_techo(ctx).max() <= MAX_STEP_TECHO
+
+
+def test_dual_techo_admite_respiracion_suave():
+    """Con profundidad 0.10, 0.012509 por frame sigue bajo la cota visual."""
+    ctx = make_ctx(cfg=EffectsConfig(harmony_beat_depth=0.10))
+    assert saltos_de_techo(ctx).max() <= MAX_STEP_TECHO
 
 
 def test_dual_respeta_el_orden_configurado_de_los_roles():
@@ -116,4 +134,11 @@ def test_dual_con_roles_en_el_mismo_canal_degrada_a_combo():
 def test_dual_con_mas_de_dos_luces_degrada_a_combo():
     """`dual` solo sabe repartir dos roles; no deja canales extra con color viejo."""
     ctx = make_ctx(channel_count=3)
+    assert get_effect("dual").render(ctx) == ComboEffect().render(ctx)
+
+
+@pytest.mark.parametrize("wall,ceiling", [(5, 1), (-1, 0)])
+def test_dual_con_ids_fuera_del_area_degrada_a_combo(wall, ceiling):
+    """Un ID invalido no puede omitir una luz y dejarle el color anterior."""
+    ctx = make_ctx(cfg=EffectsConfig(wall_channel=wall, ceiling_channel=ceiling))
     assert get_effect("dual").render(ctx) == ComboEffect().render(ctx)

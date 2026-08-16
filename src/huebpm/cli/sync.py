@@ -78,6 +78,10 @@ def run_sync(
     print(f"Luces:  {'(dry-run, sin bridge)' if dry_run else f'{channel_count} canal(es)'}")
     print(f"Modo:   {effect.name}   render {cfg.render.fps:.0f} Hz   "
           f"compensacion {cfg.render.latency_compensation_ms:.0f} ms")
+    if effect.name == "dual" and (
+        channel_count != 2 or {cfg.effects.wall_channel, cfg.effects.ceiling_channel} != {0, 1}
+    ):
+        print("Aviso: dual requiere dos canales con IDs 0 y 1; se usara combo.")
     if cfg.env_overrides:
         # Se muestran a proposito: un ajuste que crees activo y no lo esta, o
         # uno que sigue puesto de una prueba anterior, cuesta horas.
