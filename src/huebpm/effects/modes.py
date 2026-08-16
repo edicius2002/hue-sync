@@ -150,43 +150,49 @@ class SustainEffect:
         return fill(scale(spectrum_color(ctx), brillo), ctx.channel_count)
 
 
-class DualEffect:
-    """Pared con el pulso de `combo`, techo con la armonia de `harmony`.
+class RolesEffect:
+    """Reparte pulso, armonia, espectro o sostenido por canal configurado.
 
-    El area real no es simetrica: la pared lateral hace visible cuando cae el
-    beat y el techo deja leer que acorde suena. Reutilizar ambos efectos evita
-    duplicar sus decisiones de timing, color y degradacion.
-
-    Esta pensado solo para dos luces con los IDs 0 y 1. Fuera de ese par cae a
-    `combo` en todos los canales: asi no colapsa dos roles en una clave ni deja
-    luces extra mostrando un color viejo.
+    Una luz cenital que lleva `armonia` no debe convertirse en destello aunque
+    cambie de indice: su pendiente queda limitada por `harmony_max_step`.
+    Si la lista no describe exactamente el area, se conserva `combo` entero;
+    enviar una parte dejaria los demas canales mostrando un color viejo.
     """
 
-    name = "dual"
+    name = "roles"
+    valid_roles = frozenset(("pulso", "armonia", "espectro", "sostenido"))
 
     def __init__(self) -> None:
         self._combo = ComboEffect()
-        self._harmony = HarmonyEffect()
+        self._roles = {
+            "pulso": self._combo,
+            "armonia": HarmonyEffect(),
+            "espectro": SpectrumEffect(),
+            "sostenido": SustainEffect(),
+        }
+
+    @classmethod
+    def is_valid(cls, channel_count: int, roles: tuple[str, ...]) -> bool:
+        return bool(roles) and len(roles) == channel_count and all(
+            role in cls.valid_roles for role in roles
+        )
 
     def render(self, ctx: RenderContext) -> Channels:
-        if ctx.channel_count != 2 or {
-            ctx.cfg.wall_channel,
-            ctx.cfg.ceiling_channel,
-        } != {0, 1}:
+        roles = ctx.cfg.channel_roles
+        if not self.is_valid(ctx.channel_count, roles):
             return self._combo.render(ctx)
 
-        pared = self._combo.render(ctx)[0]
-        techo = self._harmony.render(ctx)[0]
-        return {
-            ctx.cfg.wall_channel: pared,
-            ctx.cfg.ceiling_channel: techo,
-        }
+        colores = {}
+        for role in roles:
+            if role not in colores:
+                colores[role] = self._roles[role].render(ctx)[0]
+        return {channel: colores[role] for channel, role in enumerate(roles)}
 
 
 EFFECTS = {
     e.name: e
     for e in (ComboEffect(), HarmonyEffect(), BarsEffect(),
-              BeatFlashEffect(), SpectrumEffect(), IdleEffect(), SustainEffect(), DualEffect())
+              BeatFlashEffect(), SpectrumEffect(), IdleEffect(), SustainEffect(), RolesEffect())
 }
 
 
