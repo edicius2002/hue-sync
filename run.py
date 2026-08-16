@@ -72,6 +72,11 @@ def main() -> int:
 
     sub.add_parser("areas", help="lista las entertainment areas del bridge")
 
+    p_identify = sub.add_parser("identify", help="identifica las luces por canal Entertainment")
+    p_identify.add_argument("--seconds", type=float, default=6.0, help="segundos por canal")
+    p_identify.add_argument("--rounds", type=int, default=2, help="vueltas completas")
+    p_identify.add_argument("--area", default=None, help="id del area (por defecto el de hue_config)")
+
     p_ht = sub.add_parser("huetest", help="prueba el canal DTLS a las luces")
     p_ht.add_argument("--seconds", type=float, default=20.0)
     p_ht.add_argument("--area", default=None, help="id del area (por defecto el de hue_config)")
@@ -81,7 +86,7 @@ def main() -> int:
     p_sync.add_argument(
         "--mode",
         default=None,
-        help="combo | harmony | bars | beat_flash | spectrum | sustain | dual | idle",
+        help="combo | harmony | bars | beat_flash | spectrum | sustain | roles | idle",
     )
     p_sync.add_argument("--area", default=None)
     p_sync.add_argument("--dry-run", action="store_true", help="sin bridge, solo consola")
@@ -135,6 +140,11 @@ def main() -> int:
         from huebpm.cli.huetest import run_huetest
 
         return run_huetest(cfg, args.seconds, args.area)
+
+    if args.command == "identify":
+        from huebpm.cli.identify import run_identify
+
+        return run_identify(cfg, args.seconds, args.rounds, args.area)
 
     if args.command == "sync":
         from huebpm.cli.sync import run_sync
