@@ -90,6 +90,21 @@ class AudioState:
     sincopa, 1.94x.
     """
 
+    energy_trend: float = 0.0
+    """Pendiente de la energia sobre varios beats, -1 = cae, +1 = sube.
+
+    Es la version util de "detectar builds y drops". Lo caro de esa idea es la
+    ETIQUETA semantica —decidir que un pasaje ES un build—, que necesita
+    segmentacion estructural, audio etiquetado y una maquina de estados causal.
+    Lo barato es la senal CONTINUA: la energia lleva N beats subiendo.
+
+    Y para luces la continua es mejor: sin conmutacion dura, sin falsos
+    positivos, sin histeresis que afinar. Un modulador que escala brillo y
+    contraste con la pendiente hace casi todo el efecto sin nada del riesgo.
+
+    Arranca en 0.0 y nadie lo puebla todavia.
+    """
+
     rms: float = 0.0
     silent: bool = True
     frames_analyzed: int = 0

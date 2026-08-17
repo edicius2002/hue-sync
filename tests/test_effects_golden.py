@@ -63,7 +63,7 @@ responde "el render de ningun look cambia por accidente".
 de los looks que compone.
 """
 
-CAMPOS_NUEVOS = ("sub_bass", "beat_strength", "onset_rate")
+CAMPOS_NUEVOS = ("sub_bass", "beat_strength", "onset_rate", "energy_trend")
 """Los tres campos que declara el contrato y que todavia nadie puebla."""
 
 
