@@ -195,3 +195,28 @@ def test_una_variable_mal_escrita_falla_en_voz_alta():
         apply_env_overrides(cfg, {"HUEBPM_EFFECTS_ONSET_ACENTO": "0.5"})
     with pytest.raises(ValueError, match="seccion desconocida"):
         apply_env_overrides(cfg, {"HUEBPM_EFECTOS_ONSET_ACCENT": "0.5"})
+
+
+def test_un_campo_desconocido_sugiere_el_parecido_y_dice_como_quitarlo(monkeypatch):
+    """Una variable huerfana tumba CUALQUIER comando, asi que el mensaje tiene
+    que decir como salir.
+
+    Paso de verdad: al renombrar `channel_roles` a `channel_modes` quedo la
+    variable de una prueba anterior en la sesion y el error decia solo que el
+    campo no existia. Sin la sugerencia ni la salida, el usuario no tiene forma
+    de saber que la puso el mismo.
+    """
+    monkeypatch.setenv("HUEBPM_EFFECTS_CHANNEL_ROLES", '["a","b"]')
+    with pytest.raises(ValueError) as exc:
+        load_config()
+    mensaje = str(exc.value)
+    assert "channel_modes" in mensaje, "no sugiere el campo nuevo"
+    assert "set HUEBPM_EFFECTS_CHANNEL_ROLES=" in mensaje, "no dice como quitarla"
+
+
+def test_un_campo_sin_parecido_no_inventa_sugerencia(monkeypatch):
+    """La sugerencia solo aparece si de verdad se parece a algo."""
+    monkeypatch.setenv("HUEBPM_EFFECTS_XYZZY", "1")
+    with pytest.raises(ValueError) as exc:
+        load_config()
+    assert "Quiza querias" not in str(exc.value)

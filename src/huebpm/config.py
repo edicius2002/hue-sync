@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field, fields
+from difflib import get_close_matches
 from pathlib import Path
 from typing import Any
 
@@ -527,7 +528,16 @@ def apply_env_overrides(cfg: Config, entorno: dict[str, str] | None = None) -> l
         nombre = campo.lower()
         conocidos = {f.name for f in fields(destino)}
         if nombre not in conocidos:
-            raise ValueError(f"{clave}: {seccion.lower()} no tiene el campo {nombre!r}")
+            # Sugerir el parecido mas cercano. Sin esto, una variable que quedo
+            # en la sesion de una prueba anterior tumba CUALQUIER comando con un
+            # mensaje que no dice como salir, y renombrar un campo convierte a
+            # todo el que tuviera el viejo puesto en un usuario bloqueado.
+            cerca = get_close_matches(nombre, sorted(conocidos), n=1, cutoff=0.6)
+            pista = f" Quiza querias {cerca[0]!r}." if cerca else ""
+            raise ValueError(
+                f"{clave}: {seccion.lower()} no tiene el campo {nombre!r}.{pista}"
+                f" Para quitarla: set {clave}= (Windows) o unset {clave} (shell)."
+            )
         actual = getattr(destino, nombre)
         convertido = _coerce(valor, actual)
         convertido = _a_tupla(convertido, actual)
