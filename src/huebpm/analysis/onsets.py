@@ -25,6 +25,33 @@ class Onset:
     """Cuanto sobresalio del fondo local, normalizado a 0..1."""
 
 
+class OnsetRate:
+    """Cuenta onsets sobre una ventana corta fija.
+
+    Dos segundos contienen 3 beats a 90 BPM y algo mas de 5 a 155 BPM. Eso
+    basta para separar la densidad medida de reggaeton (3.09/s) y house
+    (1.59/s), sin retener una seccion entera cuando cambia el arreglo.
+    """
+
+    def __init__(self, window: float = 2.0) -> None:
+        if window <= 0.0:
+            raise ValueError("window debe ser positivo")
+        self.window = window
+        self._times: deque[float] = deque()
+
+    def reset(self) -> None:
+        self._times.clear()
+
+    def push(self, t: float) -> float:
+        self._times.append(t)
+        return self.advance(t)
+
+    def advance(self, now: float) -> float:
+        while self._times and self._times[0] <= now - self.window:
+            self._times.popleft()
+        return len(self._times) / self.window
+
+
 class OnsetDetector:
     def __init__(
         self,

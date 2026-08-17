@@ -20,7 +20,7 @@ from .analysis.beatclock import BeatClock
 from .analysis.chroma import ChromaAnalyzer
 from .analysis.downbeat import BarTracker
 from .analysis.odf import SpectralAnalyzer
-from .analysis.onsets import OnsetDetector
+from .analysis.onsets import OnsetDetector, OnsetRate
 from .analysis.sustain import SustainDetector
 from .analysis.tempo import TempoTracker
 from .config import AnalysisConfig
@@ -94,6 +94,18 @@ class AnalysisEngine:
             attack=cfg.band_attack,
             release=cfg.band_release,
         )
+        self.sub_bass = BandLevels(
+            n_bands=1,
+            peak_decay=cfg.band_peak_decay,
+            attack=cfg.band_attack,
+            release=cfg.band_release,
+        )
+        self.beat_strengths = BandLevels(
+            n_bands=1,
+            peak_decay=cfg.band_peak_decay,
+            attack=cfg.band_attack,
+            release=cfg.band_release,
+        )
         self.bars = BarTracker(
             beats_per_bar=cfg.beats_per_bar,
             beats_per_phrase=cfg.beats_per_phrase,
@@ -109,6 +121,7 @@ class AnalysisEngine:
             lookahead=cfg.onset_lookahead,
             min_separation=cfg.onset_min_separation,
         )
+        self.onset_rates = OnsetRate()
         self.sustain = SustainDetector(
             self.spectral.frame_rate,
             window=cfg.sustain_window,
@@ -134,8 +147,11 @@ class AnalysisEngine:
         self._frames_analyzed = 0
         self._last_onset_time = -1e9
         self._last_onset_strength = 0.0
+        self._onset_rate = 0.0
+        self._beat_strength = 0.0
         self._current_beat: int | None = None
         self._beat_energy = 0.0
+        self._last_beat_t: float | None = None
         self._clock_generation = self.clock.generation
         self._silence_since: float | None = None
 
@@ -167,6 +183,7 @@ class AnalysisEngine:
         self._detect_onsets(frames)
         self.chroma.process(samples)
         band_levels = self.bands.update(frames[-1].bands, dt)
+        sub_bass = float(self.sub_bass.update(np.array([frames[-1].sub_bass]), dt)[0])
         self._accumulate_beat_energy(frames)
 
         stream_now = frames[-1].t
@@ -210,6 +227,9 @@ class AnalysisEngine:
                 sustain=sustain,
                 last_onset_time=self._last_onset_time,
                 last_onset_strength=self._last_onset_strength,
+                sub_bass=sub_bass,
+                beat_strength=self._beat_strength,
+                onset_rate=self._onset_rate,
                 rms=rms,
                 silent=silent,
                 frames_analyzed=self._frames_analyzed,
@@ -217,18 +237,21 @@ class AnalysisEngine:
         )
 
     def _detect_onsets(self, frames) -> None:  # noqa: ANN001
-        """Guarda solo los golpes que NO caen en el pulso.
+        """Guarda los golpes fuera de pulso y cuenta todos para densidad.
 
         Los que caen en el beat ya los cubre la envolvente del reloj;
         acentuarlos otra vez solo duplica el mismo destello. Lo que aporta esto
         son los redobles, stabs y palmas a contratiempo, que hasta ahora se
-        descartaban porque el analisis solo buscaba periodicidad.
+        descartaban porque el analisis solo buscaba periodicidad. La tasa se
+        actualiza ANTES de ese filtro: un bombo en el pulso no crea un acento
+        extra, pero si forma parte de cuantos ataques tiene la musica.
         """
         margen = self.cfg.onset_offbeat_margin
         for f in frames:
             onset = self.onsets.push(f.flux, f.t)
             if onset is None:
                 continue
+            self._onset_rate = self.onset_rates.push(onset.t)
             wall = self.mapper.to_wall(onset.t)
             if self.clock.locked:
                 fase = self.clock.phase(wall)
@@ -237,6 +260,7 @@ class AnalysisEngine:
                     continue
             self._last_onset_time = wall
             self._last_onset_strength = onset.strength
+        self._onset_rate = self.onset_rates.advance(frames[-1].t)
 
     def _accumulate_beat_energy(self, frames) -> None:  # noqa: ANN001
         """Mide la fuerza del golpe de graves de cada beat para el BarTracker.
@@ -258,9 +282,17 @@ class AnalysisEngine:
             # El reloj se reengancho o salto de octava: los indices de beat ya
             # no significan lo mismo y el histograma acumulado es basura.
             self.bars.reset()
+            self.beat_strengths = BandLevels(
+                n_bands=1,
+                peak_decay=self.cfg.band_peak_decay,
+                attack=self.cfg.band_attack,
+                release=self.cfg.band_release,
+            )
             self._clock_generation = self.clock.generation
             self._current_beat = None
             self._beat_energy = 0.0
+            self._beat_strength = 0.0
+            self._last_beat_t = None
 
         if not self.clock.locked:
             return
@@ -273,6 +305,12 @@ class AnalysisEngine:
                 self._current_beat = index
             elif index != self._current_beat:
                 self.bars.push_beat(self._current_beat, self._beat_energy)
+                beat_t = self.clock.beat_time(index) or self.mapper.to_wall(f.t)
+                dt = self.clock.period or max(beat_t - (self._last_beat_t or beat_t), 1e-6)
+                self._beat_strength = float(
+                    self.beat_strengths.update(np.array([self._beat_energy]), dt)[0]
+                )
+                self._last_beat_t = beat_t
                 self._current_beat = index
                 self._beat_energy = 0.0
             self._beat_energy = max(self._beat_energy, float(f.bands[0]))
