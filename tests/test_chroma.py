@@ -289,12 +289,14 @@ def test_la_pendiente_se_acota_igual_a_cualquier_tempo(bpm):
 
 
 def test_el_modo_se_aparta_cuando_no_hay_armonia_fiable():
-    """Regresion sobre lo que se veia en vivo: con el umbral bajo, el color
-    perseguia un centroide que en mezcla densa da 4.84 vueltas al circulo en 22
-    segundos. Ningun tema cambia de acorde a ese ritmo. Medido, una mezcla real
-    da 0.03-0.04 de tonalidad y una progresion tonal limpia 0.37, asi que el
-    umbral separa los dos casos."""
+    """La puerta 0.03..0.06 abre armonia producida sin aceptar ruido rosa.
+
+    Sobre ocho temas la puerta anterior 0.08..0.20 quedaba cerrada en cinco;
+    0.03..0.06 abre 77-100% de los tonales y sigue sobre el maximo 0.0228 de
+    ruido rosa. Bajar a 0.025 haria que malugi salte de 30% a 77% sin razon.
+    """
     cfg = EffectsConfig()
-    assert harmony_mix(contexto(tonality=0.04)) == 0.0, "mezcla densa: no fiarse"
+    assert harmony_mix(contexto(tonality=0.0228)) == 0.0, "ruido rosa: no fiarse"
+    assert harmony_mix(contexto(tonality=0.04)) == pytest.approx(1 / 3)
     assert harmony_mix(contexto(tonality=0.37)) == 1.0, "material tonal: fiarse"
-    assert cfg.harmony_min_tonality > 0.05
+    assert cfg.harmony_min_tonality == 0.03
