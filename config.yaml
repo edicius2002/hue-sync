@@ -140,6 +140,31 @@ effects:
   # la periferia, donde mas dispara la fotosensibilidad.
   channel_roles: [pulso, armonia]
 
+  # --- Capa de composicion. DECLARADA, todavia sin implementar. ---
+  # Un look por canal, con los nombres reales de modo (no alias). El indice es
+  # el channel_id del bridge, o sea el ORDEN EN QUE ANADISTE LAS LUCES AL AREA,
+  # no una posicion geometrica: usa `run.py identify` para saber cual es cual.
+  channel_modes: [combo, harmony]
+  # Multiplicador de brillo por canal. Hace falta porque la jerarquia no sale
+  # sola de los looks: medida sobre los pares, la razon techo/pared va de 0.40
+  # a 8.12 y con combo+harmony queda en 0.45, o sea el techo mas oscuro que el
+  # acento. Al reves de lo que se quiere.
+  channel_gain: [0.7, 1.0]
+
+  # Cual es la luz cenital. Llena el campo visual incluida la periferia, que es
+  # donde mas dispara la fotosensibilidad, asi que se le acota la pendiente de
+  # brillo pase lo que pase. Depende de TU montaje fisico: aqui el canal 1 es
+  # el techo y el 0 la pared izquierda, verificado con `run.py identify`.
+  ceiling_channel: 1
+  # Sobre audio real NINGUN look activo respeta esta cota por si solo: los
+  # maximos por frame van de 0.31 (sustain) a 0.62 (bars, beat_flash), y hasta
+  # harmony llega a 0.47. Solo idle cumple. Por eso se recorta siempre.
+  ceiling_max_step: 0.03
+  # A false se desactiva la proteccion entera, para ver un look sin recortar a
+  # sabiendas. No lo dejes en false: el fallo silencioso seria un techo
+  # destellando sin que nadie lo haya elegido.
+  ceiling_clamp: true
+
   # Cuanto mas brillante es el "1" del compas. A 0 todos los beats pesan igual,
   # que es lo que hacia que el efecto pareciera sincronizado pero no musical.
   downbeat_accent: 0.35

@@ -47,6 +47,37 @@ class AudioState:
     sigan siendo funciones puras: la caida se deriva de `now - last_onset_time`.
     """
     last_onset_strength: float = 0.0
+
+    sub_bass: float = 0.0
+    """Nivel 20-80 Hz normalizado, separado de `bands[0]`.
+
+    `bands[0]` cubre 20-250 Hz y mezcla el bombo con el bajo y con los medios
+    graves. En trap y hip-hop el 808 vive por debajo de 80 Hz y es la voz que
+    llena la habitacion, asi que separarlo es lo que permite mandarlo a la luz
+    cenital sin arrastrar el resto de la mezcla.
+
+    Arranca en 0.0 y nadie lo puebla todavia.
+    """
+    beat_strength: float = 0.0
+    """Cuanto pego el ultimo beat, 0..1. NO es la confianza del tempo.
+
+    `confidence` mide si hay periodicidad; esto mide si ESTE golpe fue fuerte.
+    Un tema puede tener confianza 1.0 y golpes de intensidad muy distinta, y
+    hoy `beat_envelope` tiene forma fija: marca CUANDO cae el beat, no CUANTO
+    pego. Sin esto no se puede acentuar solo lo que lo merece.
+
+    Arranca en 0.0 y nadie lo puebla todavia.
+    """
+    onset_rate: float = 0.0
+    """Onsets por segundo sobre una ventana corta.
+
+    Distingue una base densa de golpes aislados, y discrimina de verdad:
+    medido sobre 25 s, reggaeton da 3.09/s y house 1.59/s, casi el doble.
+    `last_onset_strength` dice cuanto pego el ultimo; esto dice cuantos hay.
+
+    Arranca en 0.0 y nadie lo puebla todavia.
+    """
+
     rms: float = 0.0
     silent: bool = True
     frames_analyzed: int = 0

@@ -243,6 +243,65 @@ class EffectsConfig:
     120 BPM: llenan tambien la periferia, donde mas dispara la fotosensibilidad.
     """
 
+    channel_modes: tuple[str, ...] = ("combo", "harmony")
+    """Un LOOK por canal, en orden de canal. Sustituye a `channel_roles`.
+
+    Toma los nombres reales de modo, no alias: un modo es un look y tiene un
+    solo nombre. `channel_roles` traducia cuatro alias a cuatro modos y dejaba
+    fuera a `bars`, `beat_flash` e `idle`, que no se podian asignar a un canal.
+
+    El indice es el channel_id del bridge, que es el ORDEN EN QUE SE ANADIERON
+    LAS LUCES AL AREA, no una posicion geometrica. Usa `run.py identify` para
+    saber cual es cual antes de asignar.
+
+    Nadie lo lee todavia: el contrato lo declara y la capa de composicion lo
+    implementa despues.
+    """
+    channel_gain: tuple[float, ...] = (0.7, 1.0)
+    """Multiplicador de brillo por canal, mismo orden que `channel_modes`.
+
+    Hace falta porque la jerarquia NO sale sola de los looks. Medido sobre los
+    pares de dos canales, la razon de brillo techo/pared va de 0.40 a 8.12
+    segun la combinacion, y ninguna cae donde se quiere (techo dominante, pared
+    entre 0.6 y 0.8). Con `combo` en la pared y `harmony` en el techo la razon
+    es 0.45: el techo queda MAS OSCURO que el acento, o sea al reves.
+
+    Nadie lo lee todavia.
+    """
+
+    ceiling_channel: int | None = None
+    """Que canal es la luz cenital, o None si no hay ninguna declarada.
+
+    Una luz de techo llena el campo visual incluida la periferia, que es donde
+    mas dispara la fotosensibilidad; una lateral es un acento localizado. La
+    proteccion cuelga de la POSICION y no del look, porque cualquier look puede
+    asignarse a cualquier canal.
+
+    Nadie lo lee todavia.
+    """
+    ceiling_max_step: float = 0.03
+    """Salto maximo de brillo por frame de render en el canal cenital.
+
+    Por encima de ~0.03 a 50 fps el ojo lo lee como parpadeo; es el mismo
+    numero que ya justifican `gentle_brightness` y `SustainEffect`.
+
+    Medido sobre audio real, NINGUN look activo lo respeta por si solo: los
+    maximos por frame van de 0.31 (`sustain`) a 0.62 (`bars`, `beat_flash`),
+    y hasta `harmony` llega a 0.47. Solo `idle` cumple. Por eso el recorte no
+    es una lista blanca de looks: se aplica siempre en el canal cenital.
+
+    El test que sostenia esa cota barre la fase del beat con el audio
+    congelado, asi que solo medi la componente del reloj; la envolvente del
+    audio mueve el brillo tanto o mas.
+    """
+    ceiling_clamp: bool = True
+    """Si recortar la pendiente en el canal cenital.
+
+    A False la proteccion se desactiva entera. Existe para poder ver un look
+    sin recortar a sabiendas, no como default: el modo de fallo silencioso
+    seria una luz cenital destellando sin que nadie lo haya elegido.
+    """
+
     downbeat_accent: float = 0.35
     """Cuanto mas brillante es el "1" del compas que los demas tiempos.
 
@@ -397,8 +456,38 @@ def _apply(obj: Any, data: dict | None) -> Any:
             value = tuple(tuple(float(x) for x in c) for c in value)
         elif key == "channel_roles":
             value = tuple(str(role) for role in value)
+        else:
+            value = _a_tupla(value, getattr(obj, key, None))
         setattr(obj, key, value)
     return obj
+
+
+def _a_tupla(valor: Any, referencia: Any) -> Any:
+    """Convierte una lista del YAML en tupla, siguiendo la forma del default.
+
+    Existe para no repetir el error que ya costo dos parches. Cada campo de
+    tupla necesitaba su propio `elif` en DOS sitios —aqui y en los overrides de
+    entorno—, y olvidar uno dejaba una lista donde el resto del codigo espera
+    una tupla: comportamiento distinto segun el camino, YAML o entorno.
+
+    Va como fallback DESPUES de los casos explicitos, no en su lugar: los que
+    ya estaban siguen decidiendo, asi que ningun campo existente cambia de
+    comportamiento. Solo alcanza a los que nadie caso a mano.
+
+    El tipo de los elementos sale del propio default, que es la unica fuente
+    fiable: `channel_gain` declara floats y `channel_modes` cadenas, y de ahi
+    se deduce sin listarlos.
+    """
+    if not isinstance(referencia, tuple) or not isinstance(valor, list):
+        return valor
+    modelo = referencia[0] if referencia else None
+    if isinstance(modelo, tuple):
+        return tuple(_a_tupla(list(v) if isinstance(v, list) else v, modelo) for v in valor)
+    # bool antes que int: bool es subclase de int y `int(True)` daria 1.
+    for tipo in (bool, int, float, str):
+        if isinstance(modelo, tipo):
+            return tuple(tipo(v) for v in valor)
+    return tuple(valor)
 
 
 def _coerce(texto: str, actual: Any) -> Any:
@@ -454,9 +543,12 @@ def apply_env_overrides(cfg: Config, entorno: dict[str, str] | None = None) -> l
         conocidos = {f.name for f in fields(destino)}
         if nombre not in conocidos:
             raise ValueError(f"{clave}: {seccion.lower()} no tiene el campo {nombre!r}")
-        convertido = _coerce(valor, getattr(destino, nombre))
+        actual = getattr(destino, nombre)
+        convertido = _coerce(valor, actual)
         if nombre == "channel_roles":
             convertido = tuple(str(role) for role in convertido)
+        else:
+            convertido = _a_tupla(convertido, actual)
         setattr(destino, nombre, convertido)
         aplicados.append(f"{seccion.lower()}.{nombre} = {valor}")
     return sorted(aplicados)
