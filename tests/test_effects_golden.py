@@ -67,7 +67,12 @@ CAMPOS_NUEVOS = ("sub_bass", "beat_strength", "onset_rate")
 """Los tres campos que declara el contrato y que todavia nadie puebla."""
 
 
-def contexto(fase: float, sustain: float = 1.0, **campos_nuevos: float) -> RenderContext:
+def contexto(
+    fase: float,
+    sustain: float = 1.0,
+    tonality: float = TONALIDAD,
+    **campos_nuevos: float,
+) -> RenderContext:
     clock = BeatClock()
     clock.update(
         TempoEstimate(bpm=120.0, period=PERIOD, last_beat_time=ANCHOR, confidence=1.0),
@@ -78,7 +83,7 @@ def contexto(fase: float, sustain: float = 1.0, **campos_nuevos: float) -> Rende
         state=AudioState(
             bands=np.array(BANDAS),
             locked=True,
-            tonality=TONALIDAD,
+            tonality=tonality,
             sustain=sustain,
             **campos_nuevos,
         ),
@@ -97,11 +102,11 @@ GOLDEN: dict[str, dict[float, tuple[float, float, float]]] = {
         0.99: (0.699866554386, 0.303405989332, 0.083852130596),
     },
     "harmony": {
-        0.0: (1.0, 0.0, 0.0),
-        0.25: (1.0, 0.0, 0.0),
-        0.5: (1.0, 0.0, 0.0),
-        0.75: (1.0, 0.0, 0.0),
-        0.99: (1.0, 0.0, 0.0),
+        0.0: (0.891961538462, 0.416798076923, 0.293836538462),
+        0.25: (0.891961538462, 0.416798076923, 0.293836538462),
+        0.5: (0.891961538462, 0.416798076923, 0.293836538462),
+        0.75: (0.891961538462, 0.416798076923, 0.293836538462),
+        0.99: (0.891961538462, 0.416798076923, 0.293836538462),
     },
     "bars": {
         0.0: (0.783923076923, 0.339846153846, 0.093923076923),
@@ -145,7 +150,8 @@ GOLDEN: dict[str, dict[float, tuple[float, float, float]]] = {
 def test_el_render_de_los_looks_no_cambia(nombre):
     efecto = get_effect(nombre)
     for fase in FASES:
-        obtenido = efecto.render(contexto(fase))[0]
+        tonalidad = 0.045 if nombre == "harmony" else TONALIDAD
+        obtenido = efecto.render(contexto(fase, tonality=tonalidad))[0]
         assert obtenido == pytest.approx(GOLDEN[nombre][fase], abs=1e-9), (
             f"{nombre} cambio en fase {fase}"
         )

@@ -392,12 +392,12 @@ profundidad se recorta sola para que el salto por frame no pase de
 `harmony_max_step`. Hace falta porque la fase avanza (BPM/60)/fps por frame:
 un ajuste comodo a 120 BPM parpadea a 174.
 
-**El modo se aparta cuando no hay armonia fiable, y eso es casi siempre en
-mezcla densa.** Con el umbral bajo el color perseguia un centroide que da 4.84
-vueltas al circulo cromatico en 22 segundos sobre Billie Jean: ningun tema
-cambia de acorde a ese ritmo, era ruido pintado de color. Subiendo
-`harmony_min_tonality` a 0.08 el movimiento cae a 0.0004 por frame, o sea que
-el color simplemente se queda quieto y manda el espectral.
+**La puerta armonica abre donde hay contenido tonal producido, no solo en una
+progresion limpia.** En ocho temas reales, 0.08/0.20 quedaba cerrada en cinco:
+`harmony` era `spectrum` con otro nombre. La rampa 0.03/0.06 abre 77-100% de
+los temas tonales y sigue por encima del maximo 0.0228 del ruido rosa; hard
+techno y reggaeton solo la abren 21%. Bajar a 0.025 hace que malugi salte de
+30% a 77% sin razon musical, asi que 0.03 es el borde medido.
 
 Antes de dar con eso se probaron dos cosas que **no** funcionan, anotadas para
 que nadie las repita. Cuantizar a la clase de altura dominante con histeresis,

@@ -315,15 +315,14 @@ class EffectsConfig:
     """Constante de caida del acento, en segundos. Por debajo de ~0.1 el
     destello dura 4 o 5 frames de render y pasa desapercibido."""
 
-    harmony_min_tonality: float = 0.08
+    harmony_min_tonality: float = 0.03
     """Por debajo no hay armonia fiable y el color viene del espectro.
 
-    Calibrado sobre material real: una progresion tonal limpia da 0.37 de
-    tonalidad, y una mezcla de pop o house se queda en 0.03-0.04, apenas por
-    encima del 0.008 del ruido blanco. Con el umbral anterior de 0.02 el modo
-    se enganchaba a mezclas densas y pintaba ruido; ahora se aparta y deja el
-    color espectral, que al menos responde a algo real."""
-    harmony_full_tonality: float = 0.20
+    Medido sobre ocho temas, 0.08..0.20 no abria en cinco; 0.03..0.06 abre
+    77-100% de los tonales y queda sobre el maximo 0.0228 de ruido rosa. Bajar
+    a 0.025 rompe malugi: sube de 30% a 77% sin razon musical.
+    """
+    harmony_full_tonality: float = 0.06
     """A partir de aqui el color es armonia pura. Entre los dos se mezcla
     progresivamente: un corte seco produce un fogonazo al cruzarlo."""
     """Por debajo de esto no hay armonia que seguir (percusion, ruido) y el
