@@ -237,21 +237,21 @@ class AnalysisEngine:
         )
 
     def _detect_onsets(self, frames) -> None:  # noqa: ANN001
-        """Guarda los golpes fuera de pulso y cuenta todos para densidad.
+        """Guarda y cuenta los golpes fuera de pulso.
 
         Los que caen en el beat ya los cubre la envolvente del reloj;
         acentuarlos otra vez solo duplica el mismo destello. Lo que aporta esto
         son los redobles, stabs y palmas a contratiempo, que hasta ahora se
         descartaban porque el analisis solo buscaba periodicidad. La tasa se
-        actualiza ANTES de ese filtro: un bombo en el pulso no crea un acento
-        extra, pero si forma parte de cuantos ataques tiene la musica.
+        actualiza DESPUES del filtro: los golpes en pulso son una componente
+        comun a cualquier tema ritmico; quitarlos mide sincopa y conserva una
+        unica definicion de onset para el estado y los efectos.
         """
         margen = self.cfg.onset_offbeat_margin
         for f in frames:
             onset = self.onsets.push(f.flux, f.t)
             if onset is None:
                 continue
-            self._onset_rate = self.onset_rates.push(onset.t)
             wall = self.mapper.to_wall(onset.t)
             if self.clock.locked:
                 fase = self.clock.phase(wall)
@@ -260,6 +260,7 @@ class AnalysisEngine:
                     continue
             self._last_onset_time = wall
             self._last_onset_strength = onset.strength
+            self._onset_rate = self.onset_rates.push(onset.t)
         self._onset_rate = self.onset_rates.advance(frames[-1].t)
 
     def _accumulate_beat_energy(self, frames) -> None:  # noqa: ANN001

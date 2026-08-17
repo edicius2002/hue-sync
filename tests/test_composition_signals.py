@@ -68,7 +68,7 @@ def test_la_fuerza_cierra_el_beat_y_olvida_la_rejilla_anterior():
     assert engine._beat_strength == 0.0
 
 
-def test_la_tasa_cuenta_antes_de_descartar_los_golpes_en_el_pulso():
+def test_la_tasa_descarta_los_golpes_en_el_pulso():
     engine = _engine_con_reloj()
 
     class DetectorEnElPulso:
@@ -78,9 +78,9 @@ def test_la_tasa_cuenta_antes_de_descartar_los_golpes_en_el_pulso():
     engine.onsets = DetectorEnElPulso()  # type: ignore[assignment]
     engine._detect_onsets([_frame(0.0, 0.0), _frame(0.5, 0.0), _frame(1.0, 0.0)])
 
-    # Los tres caen exactamente en beats: no son acentos, pero si densidad.
+    # Los tres caen exactamente en beats: son pulso comun, no sincopa.
     assert engine._last_onset_time == -1e9
-    assert engine._onset_rate == pytest.approx(1.5)
+    assert engine._onset_rate == 0.0
 
 
 def test_el_motor_publica_las_tres_senales_en_el_estado():
