@@ -68,6 +68,23 @@ def test_wash_conserva_el_matiz_y_sigue_la_energia():
     assert brillo(alto) > brillo(bajo) + 0.5
 
 
+def test_wash_transmite_mas_salto_de_energia_que_harmony():
+    """El wash deliberadamente no amortigua la envolvente de energia."""
+    material = [
+        contexto(bands=(energy, 0.0, 0.0), hue=0.0, tonality=1.0)
+        for energy in (0.10, 0.35, 0.05, 0.80, 0.20)
+    ]
+
+    def maximo_salto(look: str) -> float:
+        brillo_por_frame = [brillo(get_effect(look).render(ctx)[0]) for ctx in material]
+        return float(np.abs(np.diff(brillo_por_frame)).max())
+
+    wash_jump = maximo_salto("wash")
+    harmony_jump = maximo_salto("harmony")
+
+    assert wash_jump > harmony_jump + 0.5
+
+
 def test_harmony_energy_separa_color_de_acorde_y_brillo_de_energia():
     efecto = get_effect("harmony_energy")
     rojo = efecto.render(contexto(hue=0.0, bands=(0.5, 0.1, 0.0)))[0]

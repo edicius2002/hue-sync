@@ -63,9 +63,12 @@ class WashEffect:
     Dos matices distintos se suman a marron sobre las paredes de un cuarto
     pequeno. Reutilizar `idle_color` deja un unico color estable mientras la
     energia conserva el movimiento; es el intermedio entre `idle` plano y
-    `spectrum`, que cambia de matiz. Con estado de audio real fijo, a 120 BPM
-    y 50 fps su salto propio de brillo es 0.000 por frame: el cambio de
-    energia queda en la proteccion cenital de salida, no en una envolvente.
+    `spectrum`, que cambia de matiz. En render real a 50 fps tras el warmup,
+    Billie llega a p99 0.5864 y maximo 0.7360 por frame; Summer llega a
+    0.3061. Como el color es fijo, ``max(RGB) = nivel * max(idle_color)``:
+    transmite el salto de energia entero, mientras la mezcla de color de
+    `spectrum` amortigua su maximo RGB. Es el look mas abrupto y depende de
+    `limit_slope` en la salida, no de una suavidad propia.
     """
 
     name = "wash"
@@ -155,8 +158,9 @@ class HarmonyEnergyEffect:
     mismo nivel que `spectrum`. Con tonalidad baja se mezcla hacia el color
     espectral, igual que `harmony`; inventar un tono durante percusion o ruido
     haria que el techo salte de color sin informacion armonica que respaldarlo.
-    Con estado de audio real fijo, a 120 BPM y 50 fps su salto propio de
-    brillo tambien es 0.000 por frame.
+    En render real a 50 fps tras el warmup, Billie llega a p99 0.3837 y maximo
+    0.4714 por frame; Summer llega a 0.2244. Tambien depende de `limit_slope`
+    en la salida: el nivel sigue la envolvente de energia sin suavidad propia.
     """
 
     name = "harmony_energy"
@@ -260,8 +264,8 @@ LOOK_MAX_STEPS = {
     "spectrum": 0.50,
     "sustain": 0.31,
     "idle": 0.00,
-    "wash": 0.00,
-    "harmony_energy": 0.00,
+    "wash": 0.7360,
+    "harmony_energy": 0.4714,
 }
 """Maximos medidos de brillo por frame a 50 fps sobre audio real.
 
