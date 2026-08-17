@@ -57,6 +57,26 @@ class SpectrumEffect:
         return fill(scale(spectrum_color(ctx), level), ctx.channel_count)
 
 
+class WashEffect:
+    """Color fijo que respira con la energia, pensado para el techo.
+
+    Dos matices distintos se suman a marron sobre las paredes de un cuarto
+    pequeno. Reutilizar `idle_color` deja un unico color estable mientras la
+    energia conserva el movimiento; es el intermedio entre `idle` plano y
+    `spectrum`, que cambia de matiz. Con estado de audio real fijo, a 120 BPM
+    y 50 fps su salto propio de brillo es 0.000 por frame: el cambio de
+    energia queda en la proteccion cenital de salida, no en una envolvente.
+    """
+
+    name = "wash"
+
+    def render(self, ctx: RenderContext) -> Channels:
+        bands = list(ctx.state.bands) + [0.0, 0.0, 0.0]
+        energy = max(bands[0], bands[1], bands[2])
+        level = ctx.cfg.beat_floor + (1.0 - ctx.cfg.beat_floor) * energy
+        return fill(scale(ctx.cfg.idle_color, level), ctx.channel_count)
+
+
 class ComboEffect:
     """El modo por defecto: color del espectro, brillo del beat.
 
@@ -126,6 +146,27 @@ class HarmonyEffect:
             ctx, ctx.cfg.harmony_beat_depth, ctx.cfg.harmony_max_step
         )
         return fill(scale(color, brillo), ctx.channel_count)
+
+
+class HarmonyEnergyEffect:
+    """Color del acorde con brillo por energia, pensado para el techo.
+
+    Sigue los cambios de acorde sin convertirse en una lampara fija: usa el
+    mismo nivel que `spectrum`. Con tonalidad baja se mezcla hacia el color
+    espectral, igual que `harmony`; inventar un tono durante percusion o ruido
+    haria que el techo salte de color sin informacion armonica que respaldarlo.
+    Con estado de audio real fijo, a 120 BPM y 50 fps su salto propio de
+    brillo tambien es 0.000 por frame.
+    """
+
+    name = "harmony_energy"
+
+    def render(self, ctx: RenderContext) -> Channels:
+        color = blend(spectrum_color(ctx), harmony_color(ctx), harmony_mix(ctx))
+        bands = list(ctx.state.bands) + [0.0, 0.0, 0.0]
+        energy = max(bands[0], bands[1], bands[2])
+        level = ctx.cfg.beat_floor + (1.0 - ctx.cfg.beat_floor) * energy
+        return fill(scale(color, level), ctx.channel_count)
 
 
 class SustainEffect:
@@ -207,7 +248,8 @@ class CompositionEffect:
 EFFECTS = {
     e.name: e
     for e in (ComboEffect(), HarmonyEffect(), BarsEffect(),
-              BeatFlashEffect(), SpectrumEffect(), SustainEffect(), IdleEffect())
+              BeatFlashEffect(), SpectrumEffect(), SustainEffect(), IdleEffect(),
+              WashEffect(), HarmonyEnergyEffect())
 }
 
 LOOK_MAX_STEPS = {
@@ -218,6 +260,8 @@ LOOK_MAX_STEPS = {
     "spectrum": 0.50,
     "sustain": 0.31,
     "idle": 0.00,
+    "wash": 0.00,
+    "harmony_energy": 0.00,
 }
 """Maximos medidos de brillo por frame a 50 fps sobre audio real.
 
