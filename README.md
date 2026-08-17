@@ -58,7 +58,7 @@ py -3.11 -m venv .venv
 ```
 
 Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`,
-`sustain`, `roles`, `idle`.
+`sustain`, `idle`.
 
 ### Afinar sin editar ficheros
 
@@ -130,7 +130,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | harmony | bars | beat_flash | spectrum | sustain | roles | idle
+           modes.py        combo | harmony | bars | beat_flash | spectrum | sustain | idle
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico
@@ -277,17 +277,19 @@ color dice que suena** (mezcla de graves/medios/agudos) y **el brillo dice
 cuando** (envolvente del beat). Juntarlas produce un estrobo; separarlas se lee
 como musica.
 
-`roles` generaliza esa separacion a cualquier area: `channel_roles` asigna un
-rol por canal y en el mismo orden de insercion del bridge. `pulso` usa `combo`,
-`armonia` usa `harmony`, `espectro` usa `spectrum` y `sostenido` usa `sustain`.
-Asi la pared puede marcar **cuando** cae el beat y una luz cenital puede dejar
-ver **que** acorde suena, sin asumir una geometria ni un numero de luces. Si la
-lista no describe todos los canales o contiene un rol invalido, degrada a
-`combo` entero para no dejar una luz con el color anterior.
+La capa de composicion asigna un look real por canal con `channel_modes` y
+ajusta su jerarquia con `channel_gain`, en el mismo orden de insercion del
+bridge. Asi la pared puede llevar `combo` con ganancia 0.7 y el techo
+`harmony` con 1.0, sin asumir una geometria ni un numero de luces. Si las dos
+listas no describen todos los canales, el area entera degrada al `mode` global
+para no dejar una luz con el color anterior. `--mode X` sigue siendo el atajo
+para X en todos los canales con ganancia 1.0.
 
-En una luz cenital usa `armonia` (maximo 0.030 de brillo por frame) o
-`espectro` (plano, 0.000). `pulso` y `sostenido` sin mezcla saltan 0.336 por
-frame a 120 BPM y estroboscopan la periferia, donde mas importa evitarlo.
+El canal configurado como `ceiling_channel` se recorta en la salida a
+`ceiling_max_step` de brillo por frame, preservando el matiz RGB. Ningun look
+activo respeta 0.03 por si solo sobre audio real; el techo se protege aunque
+su look cambie. Pon `ceiling_clamp: false` solo para inspeccionar a sabiendas
+el destello sin recortar.
 
 La envolvente se calcula de la *fase* del beat, no de eventos "hubo un beat".
 Por eso puede subir el brillo durante la fraccion `beat_attack` ANTERIOR al

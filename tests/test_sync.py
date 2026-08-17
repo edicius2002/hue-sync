@@ -8,8 +8,8 @@ from huebpm.cli import sync
 from huebpm.config import Config
 
 
-def test_roles_invalidos_avisan_antes_del_loop(monkeypatch, capsys):
-    """Un dry-run de un canal no puede ocultar que `roles` caera a combo."""
+def test_composicion_invalida_avisa_antes_del_loop(monkeypatch, capsys):
+    """Un dry-run de un canal no puede ocultar el fallback de toda el area."""
     reloj = [0.0]
 
     class Capture:
@@ -62,6 +62,8 @@ def test_roles_invalidos_avisan_antes_del_loop(monkeypatch, capsys):
     monkeypatch.setattr(sync.time, "perf_counter", lambda: reloj[0])
 
     cfg = Config()
-    cfg.effects.mode = "roles"
     assert sync.run_sync(cfg, duration=0.1, dry_run=True) == 0
-    assert "Aviso: roles no describe todos los canales; se usara combo." in capsys.readouterr().out
+    salida = capsys.readouterr().out
+    assert "AVISO: composicion invalida" in salida
+    assert "esperaba 1" in salida
+    assert "channel_modes=('combo', 'harmony')" in salida

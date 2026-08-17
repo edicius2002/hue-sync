@@ -18,8 +18,8 @@ import time
 
 from ..audio.capture import LoopbackCapture, resolve_device
 from ..config import Config, load_hue_credentials
-from ..effects.base import RenderContext
-from ..effects.modes import IdleEffect, RolesEffect, get_effect
+from ..effects.base import Channels, RenderContext, limit_slope
+from ..effects.modes import LOOK_MAX_STEPS, CompositionEffect, IdleEffect, get_effect
 from ..engine import AnalysisEngine, LiveAnalyzer
 from ..hue.backends import StreamError
 from ..hue.client import EntertainmentSession
@@ -73,15 +73,35 @@ def run_sync(
             return 1
         channel_count = session.channel_count or 1
 
+    channel_modes = (mode,) * channel_count if mode else cfg.effects.channel_modes
+    channel_gain = (1.0,) * channel_count if mode else cfg.effects.channel_gain
+    composition = CompositionEffect(effect, channel_modes, channel_gain)
+    composition_valid = composition.is_valid(channel_count, cfg.effects)
+
     comp = cfg.render.latency_compensation_ms / 1000.0
     print(f"Audio:  [{device.index}] {device.name} @ {device.samplerate} Hz")
     print(f"Luces:  {'(dry-run, sin bridge)' if dry_run else f'{channel_count} canal(es)'}")
     print(f"Modo:   {effect.name}   render {cfg.render.fps:.0f} Hz   "
           f"compensacion {cfg.render.latency_compensation_ms:.0f} ms")
-    if isinstance(effect, RolesEffect) and not effect.is_valid(
-        channel_count, cfg.effects.channel_roles
-    ):
-        print("Aviso: roles no describe todos los canales; se usara combo.")
+    if not composition_valid:
+        print(
+            "AVISO: composicion invalida: esperaba "
+            f"{channel_count} modos y la misma cantidad de ganancias; encontro "
+            f"channel_modes={channel_modes!r}, channel_gain={channel_gain!r}. "
+            f"Se usara mode `{effect.name}` en todos los canales."
+        )
+    elif cfg.effects.ceiling_clamp and cfg.effects.ceiling_channel is not None:
+        ceiling = cfg.effects.ceiling_channel
+        if 0 <= ceiling < channel_count:
+            look = channel_modes[ceiling]
+            salto = LOOK_MAX_STEPS[look]
+            if salto > cfg.effects.ceiling_max_step:
+                print(
+                    f"AVISO: canal {ceiling} (cenital) con `{look}`, que salta hasta "
+                    f"{salto:.2f}/frame sobre audio real. Se recorta a "
+                    f"{cfg.effects.ceiling_max_step:.2f}. Para verlo sin recortar: "
+                    "ceiling_clamp: false"
+                )
     if cfg.env_overrides:
         # Se muestran a proposito: un ajuste que crees activo y no lo esta, o
         # uno que sigue puesto de una prueba anterior, cuesta horas.
@@ -92,6 +112,7 @@ def run_sync(
     started = time.perf_counter()
     sent = failed = 0
     next_status = 0.0
+    previous_brightness: dict[int, float] = {}
 
     capture.start()
     analyzer.start()
@@ -107,8 +128,17 @@ def run_sync(
                 # esto, no en el que se calcula.
                 lookahead = now + comp
                 ctx = _context(engine, state, lookahead, channel_count, cfg, now_real=now)
-                active = idle_effect if state.silent else effect
+                active = idle_effect if state.silent else composition
                 channels = active.render(ctx)
+                if state.silent:
+                    # `idle` es plano: al volver a sonar no hay pendiente que
+                    # heredar de un frame que ya no representaba la musica.
+                    previous_brightness.clear()
+                else:
+                    channels = _limit_ceiling(channels, previous_brightness, cfg.effects)
+                    previous_brightness = {
+                        channel: max(color) for channel, color in channels.items()
+                    }
 
                 if session is not None:
                     if session.send(channels):
@@ -136,6 +166,18 @@ def run_sync(
     print(f"Jitter del loop: media {limiter.jitter.mean_ms:.2f} ms, "
           f"max {limiter.jitter.max_ms:.2f} ms")
     return 0
+
+
+def _limit_ceiling(
+    channels: Channels, previous_brightness: dict[int, float], cfg
+) -> Channels:  # noqa: ANN001
+    """Aplica la proteccion de salida solo al canal cenital declarado."""
+    ceiling = cfg.ceiling_channel
+    if not cfg.ceiling_clamp or ceiling is None:
+        return channels
+    return limit_slope(
+        previous_brightness.get(ceiling), channels, ceiling, cfg.ceiling_max_step
+    )
 
 
 def _context(engine, state, now, channel_count, cfg, now_real=None) -> RenderContext:  # noqa: ANN001

@@ -209,7 +209,7 @@ class RenderConfig:
 @dataclass
 class EffectsConfig:
     mode: str = "combo"
-    """combo | harmony | bars | beat_flash | spectrum | sustain | roles | idle"""
+    """combo | harmony | bars | beat_flash | spectrum | sustain | idle"""
 
     beat_attack: float = 0.08
     """Fraccion del beat que dura la subida ANTES del golpe.
@@ -231,31 +231,17 @@ class EffectsConfig:
     idle_brightness: float = 0.07
     """Estado en reposo cuando no suena nada: tenue y fijo, nunca apagado."""
 
-    channel_roles: tuple[str, ...] = ("pulso", "armonia")
-    """Rol de cada canal en `roles`, en el mismo orden que el area.
-
-    El indice de la tupla es el channel_id del bridge, no una posicion
-    geometrica. Una tupla evita que un override mutable cambie la configuracion
-    compartida mientras el loop de render la consulta a 50 fps.
-
-    En una luz cenital usa `armonia` (maximo 0.030 por frame) o `espectro`
-    (plano, 0.000). `pulso` y `sostenido` sin mezcla saltan 0.336 por frame a
-    120 BPM: llenan tambien la periferia, donde mas dispara la fotosensibilidad.
-    """
-
     channel_modes: tuple[str, ...] = ("combo", "harmony")
-    """Un LOOK por canal, en orden de canal. Sustituye a `channel_roles`.
+    """Un LOOK por canal, en orden de canal.
 
     Toma los nombres reales de modo, no alias: un modo es un look y tiene un
-    solo nombre. `channel_roles` traducia cuatro alias a cuatro modos y dejaba
-    fuera a `bars`, `beat_flash` e `idle`, que no se podian asignar a un canal.
+    solo nombre. Incluye tambien `bars`, `beat_flash` e `idle`, para que todos
+    los looks reales se puedan asignar a un canal.
 
     El indice es el channel_id del bridge, que es el ORDEN EN QUE SE ANADIERON
     LAS LUCES AL AREA, no una posicion geometrica. Usa `run.py identify` para
     saber cual es cual antes de asignar.
 
-    Nadie lo lee todavia: el contrato lo declara y la capa de composicion lo
-    implementa despues.
     """
     channel_gain: tuple[float, ...] = (0.7, 1.0)
     """Multiplicador de brillo por canal, mismo orden que `channel_modes`.
@@ -266,7 +252,6 @@ class EffectsConfig:
     entre 0.6 y 0.8). Con `combo` en la pared y `harmony` en el techo la razon
     es 0.45: el techo queda MAS OSCURO que el acento, o sea al reves.
 
-    Nadie lo lee todavia.
     """
 
     ceiling_channel: int | None = None
@@ -277,7 +262,6 @@ class EffectsConfig:
     proteccion cuelga de la POSICION y no del look, porque cualquier look puede
     asignarse a cualquier canal.
 
-    Nadie lo lee todavia.
     """
     ceiling_max_step: float = 0.03
     """Salto maximo de brillo por frame de render en el canal cenital.
@@ -454,8 +438,6 @@ def _apply(obj: Any, data: dict | None) -> Any:
             value = tuple(float(x) for x in value)
         elif key == "phrase_palette":
             value = tuple(tuple(float(x) for x in c) for c in value)
-        elif key == "channel_roles":
-            value = tuple(str(role) for role in value)
         else:
             value = _a_tupla(value, getattr(obj, key, None))
         setattr(obj, key, value)
@@ -545,10 +527,7 @@ def apply_env_overrides(cfg: Config, entorno: dict[str, str] | None = None) -> l
             raise ValueError(f"{clave}: {seccion.lower()} no tiene el campo {nombre!r}")
         actual = getattr(destino, nombre)
         convertido = _coerce(valor, actual)
-        if nombre == "channel_roles":
-            convertido = tuple(str(role) for role in convertido)
-        else:
-            convertido = _a_tupla(convertido, actual)
+        convertido = _a_tupla(convertido, actual)
         setattr(destino, nombre, convertido)
         aplicados.append(f"{seccion.lower()}.{nombre} = {valor}")
     return sorted(aplicados)

@@ -246,5 +246,29 @@ def scale(color: Color, factor: float) -> Color:
     return (color[0] * factor, color[1] * factor, color[2] * factor)
 
 
+def limit_slope(
+    previo: float | None, nuevo: Channels, canal: int, max_step: float
+) -> Channels:
+    """Acota el brillo de un canal sin mover su matiz.
+
+    La pendiente se mide sobre ``max(R, G, B)`` porque limitar componentes por
+    separado cambia la proporcion entre ellas y por tanto el color. El estado
+    del frame anterior vive en el loop de salida: los efectos siguen puros y
+    el primer frame no se toca porque aun no existe una pendiente que limitar.
+    """
+    if previo is None or canal not in nuevo:
+        return nuevo
+
+    color = nuevo[canal]
+    brillo = max(color)
+    limitado = min(previo + max_step, max(previo - max_step, brillo))
+    if brillo <= 1e-9:
+        return nuevo
+
+    canales = nuevo.copy()
+    canales[canal] = scale(color, limitado / brillo)
+    return canales
+
+
 def fill(color: Color, count: int) -> Channels:
     return {i: color for i in range(max(1, count))}

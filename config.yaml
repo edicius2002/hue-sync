@@ -114,7 +114,7 @@ analysis:
   downbeat_offset_hold: 8           # compases antes de mover el "1"
 
 effects:
-  mode: combo              # combo | harmony | bars | beat_flash | spectrum | sustain | roles | idle
+  mode: combo              # combo | harmony | bars | beat_flash | spectrum | sustain | idle
 
   # El brillo sube durante esta fraccion del beat ANTES del golpe. Es lo que
   # convierte el efecto en algo que se anticipa al ritmo en vez de reaccionar,
@@ -132,15 +132,6 @@ effects:
   idle_color: [1.0, 0.55, 0.2]
   idle_brightness: 0.07
 
-  # Modo `roles`: un rol por canal, en orden de insercion del area. No son
-  # posiciones geometricas: identifica cada luz a ojo antes de asignarla.
-  # pulso=combo, armonia=harmony, espectro=spectrum, sostenido=sustain.
-  # En luz cenital usa armonia (<=0.030/frame) o espectro (0.000 plano).
-  # pulso y sostenido sin mezcla saltan 0.336/frame a 120 BPM y estroboscopan
-  # la periferia, donde mas dispara la fotosensibilidad.
-  channel_roles: [pulso, armonia]
-
-  # --- Capa de composicion. DECLARADA, todavia sin implementar. ---
   # Un look por canal, con los nombres reales de modo (no alias). El indice es
   # el channel_id del bridge, o sea el ORDEN EN QUE ANADISTE LAS LUCES AL AREA,
   # no una posicion geometrica: usa `run.py identify` para saber cual es cual.
