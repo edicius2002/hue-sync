@@ -171,8 +171,8 @@ def test_composicion_invalida_avisa_antes_del_loop(monkeypatch, capsys):
 def test_el_guard_cenital_conserva_idle_al_volver_el_audio(monkeypatch):
     """El primer frame tras silencio parte del idle fisico, no de la nada.
 
-    Idle mide 0.07 y harmony quiere volver a 1.0. Conservar el ultimo RGB
-    deja el primer salto en 0.03; limpiar la memoria lo deja en 0.93.
+    Conservar el ultimo RGB, ya transformado por la salida, deja el primer
+    salto en 0.03. Limpiar la memoria deja sin cota el retorno del audio.
     """
     estados = (
         AudioState(silent=True, bands=np.array((0.9, 0.3, 0.1))),
@@ -187,9 +187,10 @@ def test_el_guard_cenital_conserva_idle_al_volver_el_audio(monkeypatch):
 
 
 def test_mode_explicitamente_sobre_escribe_la_composicion_en_el_loop(monkeypatch):
-    """`--mode spectrum` envia spectrum con ganancia 1 a ambos canales."""
+    """`--mode spectrum` conserva el look aunque cada canal tenga su salida."""
     estados = (AudioState(silent=False, bands=np.array((0.9, 0.3, 0.1))),)
     enviados = ejecutar_frames(monkeypatch, estados, (100.0, 101.0), mode="spectrum")
 
     assert len(enviados) == 1
-    assert enviados[0][0] == enviados[0][1]
+    assert max(enviados[0][0]) > 0.7
+    assert max(enviados[0][1]) > 0.9

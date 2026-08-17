@@ -245,18 +245,53 @@ class EffectsConfig:
 
     """
     channel_gain: tuple[float, ...] = (0.7, 1.0)
-    """Multiplicador de brillo por canal, mismo orden que `channel_modes`.
+    """Compatibilidad temporal para `CompositionEffect`, sin efecto en sync.
 
-    Cada valor va de 0.0 a 1.0. Por encima de 1.0 podria saturar solo un
-    componente RGB y desplazar el matiz; se rechaza la composicion completa y
-    se usa el fallback en vez de mandar un color que no se pidio.
+    La salida real usa `channel_range`, `channel_saturation`,
+    `channel_hue_shift` y `channel_normalize`. Se conserva solo porque el
+    compositor vive en otro modulo que todavia acepta este argumento; sync le
+    inyecta siempre 1.0 y no lee este valor.
+    """
 
-    Hace falta porque la jerarquia NO sale sola de los looks. Medido sobre los
-    pares de dos canales, la razon de brillo techo/pared va de 0.40 a 8.12
-    segun la combinacion, y ninguna cae donde se quiere (techo dominante, pared
-    entre 0.6 y 0.8). Con `combo` en la pared y `harmony` en el techo la razon
-    es 0.45: el techo queda MAS OSCURO que el acento, o sea al reves.
+    channel_range: tuple[tuple[float, float], ...] = ((0.25, 1.0), (0.45, 1.0))
+    """Suelo y techo de brillo por canal, en el orden de `channel_modes`.
 
+    Combo tenia mediana 0.20 y nunca alcanzaba 1.0 sobre summer.wav. Un rango
+    separa ambos controles: 0.25..1.0 levanta la pared sin recortar el pico, y
+    0.45..1.0 deja el techo como ambiente dominante sin confundirlo con una
+    ganancia que solo multiplicaba todo por igual.
+    """
+    channel_saturation: tuple[float, ...] = (1.0, 0.85)
+    """Multiplicador de saturacion HSV por canal, 0..1.
+
+    El techo llena la periferia: 0.85 baja su agresividad sin perder el hue
+    que comunica la armonia. La pared queda a 1.0 como acento localizado.
+    """
+    channel_hue_shift: tuple[float, ...] = (0.0, 0.08)
+    """Offset circular de hue por canal, 0..1.
+
+    Sumar el mismo offset conserva la distancia circular entre acordes: se
+    mueve la paleta del techo sin borrar que el acorde cambio.
+    """
+    channel_normalize: tuple[float, ...] = (0.0, 0.6)
+    """Cuanto acercar cada canal a su pico adaptativo, 0..1.
+
+    Cero conserva toda la dinamica; uno llena el rango disponible. El techo
+    usa 0.6 para ganar presencia sin comprimir por completo la estructura.
+    """
+    channel_normalize_floor: float = 0.60
+    """Minimo del pico de referencia para normalizar.
+
+    Sin suelo, un pasaje casi silencioso se dividiria por un pico diminuto y
+    encenderia la luz de golpe. 0.60 limita esa ganancia inicial a 1.67x.
+    """
+    channel_normalize_release: float = 120.0
+    """Segundos de release exponencial del pico de referencia.
+
+    El ataque es inmediato para que un pico nuevo nunca se sobreamplifique.
+    Con 120 s, la referencia apenas cae 7.2% durante un breakdown de nueve
+    segundos. En summer.wav con normalizacion plena deja ese tramo en 0.936
+    contra 0.971 en t=20..24 s; a 12 s quedaban 0.999 y 0.996, sin estructura.
     """
 
     ceiling_channel: int | None = None
@@ -461,8 +496,8 @@ def _a_tupla(valor: Any, referencia: Any) -> Any:
     comportamiento. Solo alcanza a los que nadie caso a mano.
 
     El tipo de los elementos sale del propio default, que es la unica fuente
-    fiable: `channel_gain` declara floats y `channel_modes` cadenas, y de ahi
-    se deduce sin listarlos.
+    fiable: los propios defaults declaran floats, cadenas y tuplas anidadas,
+    y de ahi se deduce sin listarlos.
     """
     if not isinstance(referencia, tuple) or not isinstance(valor, list):
         return valor

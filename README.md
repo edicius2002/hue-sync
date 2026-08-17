@@ -278,19 +278,27 @@ cuando** (envolvente del beat). Juntarlas produce un estrobo; separarlas se lee
 como musica.
 
 La capa de composicion asigna un look real por canal con `channel_modes` y
-ajusta su jerarquia con `channel_gain`, en el mismo orden de insercion del
-bridge. Asi la pared puede llevar `combo` con ganancia 0.7 y el techo
-`harmony` con 1.0, sin asumir una geometria ni un numero de luces. Si las dos
-listas no describen todos los canales, o una ganancia sale de 0.0..1.0, el
-area entera degrada al `mode` global para no dejar una luz con el color
-anterior ni saturar un componente RGB. `--mode X` sigue siendo el atajo para X
-en todos los canales con ganancia 1.0.
+aplica despues cuatro controles de salida en el mismo orden de insercion del
+bridge: `channel_range`, `channel_saturation`, `channel_hue_shift` y
+`channel_normalize`. El rango separa suelo y techo de brillo, la saturacion y
+el hue dan una paleta propia a cada foco, y la normalizacion es un escalar
+0..1 para no elegir entre apagado y compresion total. Asi la pared puede llevar
+`combo` con rango 0.25..1.0 y el techo `harmony` con 0.45..1.0, sin asumir una
+geometria ni un numero de luces. `--mode X` conserva X como look en todos los
+canales; los controles fisicos por canal siguen aplicandose.
+
+El seguidor de pico de `channel_normalize` sube en un frame y baja en 120 s,
+con suelo 0.60. El suelo limita la ganancia inicial a 1.67x; el release evita
+que un breakdown se convierta en luz plena. Sobre summer.wav, normalizacion
+plena deja el techo en 0.936 durante t=8..17 s y en 0.971 durante t=20..24 s.
 
 El canal configurado como `ceiling_channel` se recorta en la salida a
-`ceiling_max_step` de brillo por frame, preservando el matiz RGB. Ningun look
+`ceiling_max_step` de brillo por frame, preservando el matiz RGB. El orden es
+fijo: efecto, rango, saturacion, hue, normalizacion y recorte. Ningun look
 activo respeta 0.03 por si solo sobre audio real; el techo se protege aunque
-su look cambie. La memoria conserva el RGB de `idle` al salir del silencio y
-tambien permite apagar una ganancia cero paso a paso: negro no se puede
+su look cambie y el recorte queda ultimo para que ninguna normalizacion vuelva
+a ampliar un salto ya limitado. La memoria conserva el RGB de `idle` al salir
+del silencio y tambien permite apagar negro paso a paso: negro no se puede
 reescalar, asi que se atenúa el ultimo color hasta cero. Pon
 `ceiling_clamp: false` solo para inspeccionar a sabiendas el destello sin
 recortar.

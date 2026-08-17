@@ -18,7 +18,17 @@ import time
 
 from ..audio.capture import LoopbackCapture, resolve_device
 from ..config import Config, load_hue_credentials
-from ..effects.base import Channels, Color, RenderContext, limit_slope
+from ..effects.base import (
+    Channels,
+    Color,
+    RenderContext,
+    channel_hue_shift,
+    channel_normalize,
+    channel_range,
+    channel_saturation,
+    limit_slope,
+    next_peak,
+)
 from ..effects.modes import LOOK_MAX_STEPS, CompositionEffect, IdleEffect, get_effect
 from ..engine import AnalysisEngine, LiveAnalyzer
 from ..hue.backends import StreamError
@@ -74,9 +84,11 @@ def run_sync(
         channel_count = session.channel_count or 1
 
     channel_modes = (mode,) * channel_count if mode else cfg.effects.channel_modes
-    channel_gain = (1.0,) * channel_count if mode else cfg.effects.channel_gain
-    composition = CompositionEffect(effect, channel_modes, channel_gain)
+    # CompositionEffect conserva su ganancia por compatibilidad, pero la capa
+    # de salida la sustituye por las cuatro primitivas por canal.
+    composition = CompositionEffect(effect, channel_modes, (1.0,) * channel_count)
     composition_valid = composition.is_valid(channel_count, cfg.effects)
+    controls_valid = _output_controls_valid(channel_count, cfg.effects)
 
     comp = cfg.render.latency_compensation_ms / 1000.0
     print(f"Audio:  [{device.index}] {device.name} @ {device.samplerate} Hz")
@@ -86,9 +98,14 @@ def run_sync(
     if not composition_valid:
         print(
             "AVISO: composicion invalida: esperaba "
-            f"{channel_count} modos y la misma cantidad de ganancias; encontro "
-            f"channel_modes={channel_modes!r}, channel_gain={channel_gain!r}. "
+            f"{channel_count} modos; encontro channel_modes={channel_modes!r}. "
             f"Se usara mode `{effect.name}` en todos los canales."
+        )
+    if not controls_valid:
+        print(
+            "AVISO: controles de salida invalidos; se usara RGB crudo antes del "
+            "recorte cenital. Revisa channel_range, channel_saturation, "
+            "channel_hue_shift y channel_normalize."
         )
     elif cfg.effects.ceiling_clamp and cfg.effects.ceiling_channel is not None:
         ceiling = cfg.effects.ceiling_channel
@@ -113,6 +130,7 @@ def run_sync(
     sent = failed = 0
     next_status = 0.0
     previous_colors: dict[int, Color] = {}
+    peak_references: dict[int, float] = {}
 
     capture.start()
     analyzer.start()
@@ -130,14 +148,11 @@ def run_sync(
                 ctx = _context(engine, state, lookahead, channel_count, cfg, now_real=now)
                 active = idle_effect if state.silent else composition
                 channels = active.render(ctx)
-                if state.silent:
-                    # Idle ES el RGB fisico que queda encendido. Conservarlo
-                    # evita el salto 0.07 -> 1.00 al volver una armonia; se
-                    # necesitan 31 frames de 0.03, no un fogonazo cenital.
-                    previous_colors = channels.copy()
-                else:
-                    channels = _limit_ceiling(channels, previous_colors, cfg.effects)
-                    previous_colors = channels.copy()
+                channels, peak_references = _output_pipeline(
+                    channels, peak_references, previous_colors, cfg.effects,
+                    cfg.render.fps, apply_controls=controls_valid,
+                )
+                previous_colors = channels.copy()
 
                 if session is not None:
                     if session.send(channels):
@@ -177,6 +192,59 @@ def _limit_ceiling(
     return limit_slope(
         previous_colors.get(ceiling), channels, ceiling, cfg.ceiling_max_step
     )
+
+
+def _output_controls_valid(channel_count: int, cfg) -> bool:  # noqa: ANN001
+    """Verifica que las cuatro listas describen todos los canales reales."""
+    listas = (
+        cfg.channel_range,
+        cfg.channel_saturation,
+        cfg.channel_hue_shift,
+        cfg.channel_normalize,
+    )
+    if any(len(valores) != channel_count for valores in listas):
+        return False
+    return (
+        all(0.0 <= minimo <= maximo <= 1.0 for minimo, maximo in cfg.channel_range)
+        and all(0.0 <= valor <= 1.0 for valores in listas[1:] for valor in valores)
+        and cfg.channel_normalize_floor > 0.0
+        and cfg.channel_normalize_release > 0.0
+    )
+
+
+def _output_pipeline(
+    channels: Channels,
+    peak_references: dict[int, float],
+    previous_colors: dict[int, Color],
+    cfg,
+    fps: float,
+    *,
+    apply_controls: bool = True,
+) -> tuple[Channels, dict[int, float]]:  # noqa: ANN001
+    """Aplica el orden fijo de salida y deja el recorte cenital al final.
+
+    Rango, saturacion, hue y normalizacion son transformaciones puras; los
+    dos historiales se reciben y devuelven para que el estado viva en el loop.
+    El recorte VA al final: normalizar despues podria reabrir un salto ya
+    limitado y romper la cota de 0.03 del techo.
+    """
+    picos = peak_references.copy()
+    salida: Channels = {}
+    for channel, color in channels.items():
+        if apply_controls:
+            minimo, maximo = cfg.channel_range[channel]
+            color = channel_range(color, minimo, maximo)
+            color = channel_saturation(color, cfg.channel_saturation[channel])
+            color = channel_hue_shift(color, cfg.channel_hue_shift[channel])
+            pico = next_peak(
+                picos.get(channel), max(color), 1.0 / fps,
+                floor=cfg.channel_normalize_floor,
+                release_seconds=cfg.channel_normalize_release,
+            )
+            picos[channel] = pico
+            color = channel_normalize(color, pico, cfg.channel_normalize[channel])
+        salida[channel] = color
+    return _limit_ceiling(salida, previous_colors, cfg), picos
 
 
 def _context(engine, state, now, channel_count, cfg, now_real=None) -> RenderContext:  # noqa: ANN001
