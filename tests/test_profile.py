@@ -139,13 +139,28 @@ def test_columnas_de_calibracion_distinguen_click_de_pad(tmp_path):
     fila_click = profile_file(Config(), escribir_wav(tmp_path / "click.wav", click))
     fila_pad = profile_file(Config(), escribir_wav(tmp_path / "pad.wav", pad))
 
-    assert fila_click.harmony_mix_pct == 0.0
+    # Se afirma un ORDEN, no un valor absoluto. La version anterior exigia
+    # `hmix == 0` para el click, y era cierta con la puerta 0.08/0.20 pero dejo
+    # de serlo al recalibrarla a 0.03/0.06 en otra tarea de la misma ronda:
+    # medido, el click mide 0.042 de tonalidad y cruza la puerta nueva entera.
+    #
+    # No es un fallo de la calibracion, que se hizo contra ocho temas reales.
+    # Un tren de impulsos tiene espectro de peine armonico, asi que concentra
+    # energia en clases de altura y puntua MAS tonal que la percusion real
+    # (kobosil 0.009, daddy 0.022, ambos por debajo del ruido rosa a 0.0228).
+    # Es la misma familia que el limite ya documentado del ruido coloreado.
+    #
+    # Un orden sobrevive a recalibraciones futuras y sigue cazando lo que este
+    # test protege: una columna clavada a cero o invertida.
+    assert fila_pad.harmony_mix_pct > fila_click.harmony_mix_pct or (
+        fila_pad.tonal_p50 > 5 * fila_click.tonal_p50
+    )
     assert fila_pad.harmony_mix_pct > 0.0
 
     assert fila_click.sustain_mix_pct == 0.0
     assert fila_pad.sustain_mix_pct > 0.0
 
-    assert fila_click.tonal_p50 < 0.05
+    assert fila_click.tonal_p50 < fila_pad.tonal_p50
     assert fila_pad.tonal_p50 > 0.0
     assert fila_pad.tonal_max > 0.0
 
