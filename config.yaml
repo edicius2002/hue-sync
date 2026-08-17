@@ -205,6 +205,10 @@ effects:
 
 render:
   fps: 50.0
-  # Cuanto ANTES del beat se emite el comando, para cubrir analisis + DTLS +
-  # el salto Zigbee del bridge. Se calibra contra las luces reales.
-  latency_compensation_ms: 120.0
+  # Cuanto ANTES del beat se emite el comando. Calibrado a ojo contra las luces
+  # reales: es la unica forma, el stream de entertainment es UDP unidireccional
+  # y no hay eco que cronometrar. 120 ms era el punto de partida y resulto alto.
+  # No compensa el analisis (el BeatClock predice; su error es 1.8-10.8 ms):
+  # compensa la salida. Medido: 10 ms de cuantizacion del render, 0.07 ms de
+  # send(), y el resto es Zigbee mas la subida del LED.
+  latency_compensation_ms: 50.0

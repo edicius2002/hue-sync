@@ -179,12 +179,30 @@ class AnalysisConfig:
 @dataclass
 class RenderConfig:
     fps: float = 50.0
-    latency_compensation_ms: float = 120.0
+    latency_compensation_ms: float = 50.0
     """Cuanto *antes* del beat se emite el comando.
 
-    Cubre analisis + DTLS + el salto Zigbee del bridge. Se calibra a ojo
-    contra las luces reales; 120 ms es un punto de partida razonable dado que
-    el bridge solo empuja a Zigbee a 25 Hz.
+    Calibrado a ojo contra las luces reales, que es la unica forma: el stream
+    de entertainment es UDP unidireccional y no hay eco que cronometrar.
+    120 ms era un punto de partida y resulto alto; a 50 ms el destello y el
+    golpe se perciben como un solo evento.
+
+    Desglose de la cadena, con lo medible medido:
+
+        analisis                 ~0 ms de sesgo   el BeatClock PREDICE, no
+                                                  reacciona; el error contra
+                                                  ground truth es 1.8-10.8 ms
+        cuantizacion del render  10 ms de media   periodo de 20 ms a 50 fps
+        send() por UDP           0.07 ms          fire-and-forget, es ruido
+        Zigbee + subida del LED  el resto         no medible desde el PC
+
+    O sea que esto NO compensa el analisis: lo compensa casi todo el tramo de
+    salida. Por eso bajarlo no desincroniza el detector.
+
+    La tolerancia audiovisual es asimetrica: el ojo detecta antes que la luz se
+    adelante al sonido que no que se retrase. Si hay que equivocarse, mejor por
+    debajo. El error se ve donde el beat es corto: a 174 BPM el periodo es
+    345 ms y 50 ms de desvio son el 14%; a 76 BPM son el 6% y no se notan.
     """
 
 
