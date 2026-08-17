@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import deque
 
 import numpy as np
 
@@ -25,6 +26,9 @@ from .analysis.sustain import SustainDetector
 from .analysis.tempo import TempoTracker
 from .config import AnalysisConfig
 from .state import AudioState, StatePublisher
+
+BEAT_STRENGTH_HISTORY_SECONDS = 20.0
+BEAT_STRENGTH_PERCENTILE = 90.0
 
 
 class ClockMapper:
@@ -100,12 +104,6 @@ class AnalysisEngine:
             attack=cfg.band_attack,
             release=cfg.band_release,
         )
-        self.beat_strengths = BandLevels(
-            n_bands=1,
-            peak_decay=cfg.band_peak_decay,
-            attack=cfg.band_attack,
-            release=cfg.band_release,
-        )
         self.bars = BarTracker(
             beats_per_bar=cfg.beats_per_bar,
             beats_per_phrase=cfg.beats_per_phrase,
@@ -151,7 +149,7 @@ class AnalysisEngine:
         self._beat_strength = 0.0
         self._current_beat: int | None = None
         self._beat_energy = 0.0
-        self._last_beat_t: float | None = None
+        self._beat_energy_history: deque[tuple[float, float]] = deque()
         self._clock_generation = self.clock.generation
         self._silence_since: float | None = None
 
@@ -278,22 +276,22 @@ class AnalysisEngine:
         **Pico, no suma.** El acento del downbeat es un transitorio. Sumar
         sobre todo el beat lo diluye entre el bajo sostenido, que reparte por
         igual en los cuatro tiempos y no distingue nada.
+
+        **Percentil 90 en 20 s, no pico reciente.** A 90 BPM son 30 beats y a
+        155 BPM son casi 52: historia suficiente para que un breakdown de
+        varios compases se compare contra el estribillo, sin mezclar secciones
+        de una cancion entera. El percentil, en vez del maximo, evita que un
+        unico golpe atipico aplaste todos los demas.
         """
         if self.clock.generation != self._clock_generation:
             # El reloj se reengancho o salto de octava: los indices de beat ya
             # no significan lo mismo y el histograma acumulado es basura.
             self.bars.reset()
-            self.beat_strengths = BandLevels(
-                n_bands=1,
-                peak_decay=self.cfg.band_peak_decay,
-                attack=self.cfg.band_attack,
-                release=self.cfg.band_release,
-            )
             self._clock_generation = self.clock.generation
             self._current_beat = None
             self._beat_energy = 0.0
             self._beat_strength = 0.0
-            self._last_beat_t = None
+            self._beat_energy_history.clear()
 
         if not self.clock.locked:
             return
@@ -307,11 +305,14 @@ class AnalysisEngine:
             elif index != self._current_beat:
                 self.bars.push_beat(self._current_beat, self._beat_energy)
                 beat_t = self.clock.beat_time(index) or self.mapper.to_wall(f.t)
-                dt = self.clock.period or max(beat_t - (self._last_beat_t or beat_t), 1e-6)
-                self._beat_strength = float(
-                    self.beat_strengths.update(np.array([self._beat_energy]), dt)[0]
+                self._beat_energy_history.append((beat_t, self._beat_energy))
+                oldest = beat_t - BEAT_STRENGTH_HISTORY_SECONDS
+                while self._beat_energy_history and self._beat_energy_history[0][0] < oldest:
+                    self._beat_energy_history.popleft()
+                reference = np.percentile(
+                    [energy for _, energy in self._beat_energy_history], BEAT_STRENGTH_PERCENTILE
                 )
-                self._last_beat_t = beat_t
+                self._beat_strength = float(np.clip(self._beat_energy / max(reference, 1e-9), 0.0, 1.0))
                 self._current_beat = index
                 self._beat_energy = 0.0
             self._beat_energy = max(self._beat_energy, float(f.bands[0]))

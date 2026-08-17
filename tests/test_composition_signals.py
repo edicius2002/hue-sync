@@ -68,6 +68,22 @@ def test_la_fuerza_cierra_el_beat_y_olvida_la_rejilla_anterior():
     assert engine._beat_strength == 0.0
 
 
+def test_la_fuerza_conserva_el_contraste_de_los_beats_fuertes():
+    """Ocho segundos debiles siguen comparandose contra el estribillo previo.
+
+    El horizonte largo evita que tres beats bajos redefinan el pico y oculten
+    un breakdown que dura varios compases.
+    """
+    engine = _engine_con_reloj()
+    energias = [1.0] * 20 + [0.4] * 16
+    engine._accumulate_beat_energy([_frame(0.10, energias[0])])
+    for index, energia in enumerate(energias[1:], start=1):
+        engine._accumulate_beat_energy([_frame(index * 0.5 + 0.01, energia)])
+    engine._accumulate_beat_energy([_frame(len(energias) * 0.5 + 0.01, 0.0)])
+
+    assert 0.3 < engine._beat_strength < 0.8
+
+
 def test_la_tasa_descarta_los_golpes_en_el_pulso():
     engine = _engine_con_reloj()
 
