@@ -281,15 +281,19 @@ La capa de composicion asigna un look real por canal con `channel_modes` y
 ajusta su jerarquia con `channel_gain`, en el mismo orden de insercion del
 bridge. Asi la pared puede llevar `combo` con ganancia 0.7 y el techo
 `harmony` con 1.0, sin asumir una geometria ni un numero de luces. Si las dos
-listas no describen todos los canales, el area entera degrada al `mode` global
-para no dejar una luz con el color anterior. `--mode X` sigue siendo el atajo
-para X en todos los canales con ganancia 1.0.
+listas no describen todos los canales, o una ganancia sale de 0.0..1.0, el
+area entera degrada al `mode` global para no dejar una luz con el color
+anterior ni saturar un componente RGB. `--mode X` sigue siendo el atajo para X
+en todos los canales con ganancia 1.0.
 
 El canal configurado como `ceiling_channel` se recorta en la salida a
 `ceiling_max_step` de brillo por frame, preservando el matiz RGB. Ningun look
 activo respeta 0.03 por si solo sobre audio real; el techo se protege aunque
-su look cambie. Pon `ceiling_clamp: false` solo para inspeccionar a sabiendas
-el destello sin recortar.
+su look cambie. La memoria conserva el RGB de `idle` al salir del silencio y
+tambien permite apagar una ganancia cero paso a paso: negro no se puede
+reescalar, asi que se atenúa el ultimo color hasta cero. Pon
+`ceiling_clamp: false` solo para inspeccionar a sabiendas el destello sin
+recortar.
 
 La envolvente se calcula de la *fase* del beat, no de eventos "hubo un beat".
 Por eso puede subir el brillo durante la fraccion `beat_attack` ANTERIOR al

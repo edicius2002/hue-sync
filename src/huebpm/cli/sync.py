@@ -18,7 +18,7 @@ import time
 
 from ..audio.capture import LoopbackCapture, resolve_device
 from ..config import Config, load_hue_credentials
-from ..effects.base import Channels, RenderContext, limit_slope
+from ..effects.base import Channels, Color, RenderContext, limit_slope
 from ..effects.modes import LOOK_MAX_STEPS, CompositionEffect, IdleEffect, get_effect
 from ..engine import AnalysisEngine, LiveAnalyzer
 from ..hue.backends import StreamError
@@ -112,7 +112,7 @@ def run_sync(
     started = time.perf_counter()
     sent = failed = 0
     next_status = 0.0
-    previous_brightness: dict[int, float] = {}
+    previous_colors: dict[int, Color] = {}
 
     capture.start()
     analyzer.start()
@@ -131,14 +131,13 @@ def run_sync(
                 active = idle_effect if state.silent else composition
                 channels = active.render(ctx)
                 if state.silent:
-                    # `idle` es plano: al volver a sonar no hay pendiente que
-                    # heredar de un frame que ya no representaba la musica.
-                    previous_brightness.clear()
+                    # Idle ES el RGB fisico que queda encendido. Conservarlo
+                    # evita el salto 0.07 -> 1.00 al volver una armonia; se
+                    # necesitan 31 frames de 0.03, no un fogonazo cenital.
+                    previous_colors = channels.copy()
                 else:
-                    channels = _limit_ceiling(channels, previous_brightness, cfg.effects)
-                    previous_brightness = {
-                        channel: max(color) for channel, color in channels.items()
-                    }
+                    channels = _limit_ceiling(channels, previous_colors, cfg.effects)
+                    previous_colors = channels.copy()
 
                 if session is not None:
                     if session.send(channels):
@@ -169,14 +168,14 @@ def run_sync(
 
 
 def _limit_ceiling(
-    channels: Channels, previous_brightness: dict[int, float], cfg
+    channels: Channels, previous_colors: dict[int, Color], cfg
 ) -> Channels:  # noqa: ANN001
     """Aplica la proteccion de salida solo al canal cenital declarado."""
     ceiling = cfg.ceiling_channel
     if not cfg.ceiling_clamp or ceiling is None:
         return channels
     return limit_slope(
-        previous_brightness.get(ceiling), channels, ceiling, cfg.ceiling_max_step
+        previous_colors.get(ceiling), channels, ceiling, cfg.ceiling_max_step
     )
 
 

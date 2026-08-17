@@ -109,6 +109,7 @@ def test_ganancia_uno_y_mode_explicito_producen_un_espejo_exacto():
         (("combo", "desconocido"), (1.0, 1.0)),
         ((), ()),
         (("composicion", "combo"), (1.0, 1.0)),
+        (("combo", "harmony"), (1.0, 1.01)),
     ],
 )
 def test_configuracion_invalida_degrada_el_area_entera_al_mode(modes, gain):
@@ -120,7 +121,7 @@ def test_configuracion_invalida_degrada_el_area_entera_al_mode(modes, gain):
 def test_limit_slope_acota_brillo_y_conserva_el_matiz():
     """Falla si se recorta RGB por componente y desplaza el color cenital."""
     nuevo = {0: (0.1, 0.1, 0.1), 1: (0.8, 0.4, 0.2)}
-    limitado = base.limit_slope(0.5, nuevo, 1, 0.1)
+    limitado = base.limit_slope((0.5, 0.25, 0.125), nuevo, 1, 0.1)
 
     assert limitado[1] == pytest.approx((0.6, 0.3, 0.15))
     assert max(limitado[1]) - 0.5 <= 0.1
@@ -133,11 +134,28 @@ def test_limit_slope_no_recorta_el_primer_frame():
     assert base.limit_slope(None, nuevo, 1, 0.03) == nuevo
 
 
+def test_limit_slope_apaga_negro_desde_el_color_anterior():
+    """Un gain cero no puede apagar el techo de 0.50 a negro en un frame.
+
+    `max(RGB)` no permite reescalar negro. Se conserva el RGB anterior y se
+    baja a 0.47: asi el apagado tarda los mismos frames seguros que la subida.
+    """
+    previo = (0.5, 0.25, 0.125)
+    ctx = make_ctx(cfg=config_composicion(("combo", "harmony"), (1.0, 0.0)))
+    nuevo = effect_modes.CompositionEffect(ComboEffect()).render(ctx)
+    limitado = base.limit_slope(previo, nuevo, 1, 0.03)
+
+    assert nuevo[1] == (0.0, 0.0, 0.0)
+    assert limitado[1] == pytest.approx((0.47, 0.235, 0.1175))
+    assert max(previo) - max(limitado[1]) <= 0.03 + 1e-12
+    assert colorsys.rgb_to_hsv(*limitado[1])[0] == pytest.approx(colorsys.rgb_to_hsv(*previo)[0])
+
+
 def test_ceiling_clamp_false_deja_el_frame_sin_recorte():
     """Falla si el opt-out cenital no llega a la etapa de salida."""
     cfg = config_composicion(ceiling_channel=1, ceiling_clamp=False)
     nuevo = {0: (0.1, 0.1, 0.1), 1: (0.8, 0.4, 0.2)}
-    assert sync._limit_ceiling(nuevo, {1: 0.5}, cfg) == nuevo
+    assert sync._limit_ceiling(nuevo, {1: (0.5, 0.25, 0.125)}, cfg) == nuevo
 
 
 @pytest.mark.parametrize("look", LOOKS)
@@ -148,14 +166,14 @@ def test_el_guard_cenital_acota_todos_los_looks(look):
     )
     ctx = make_ctx(cfg=cfg)
     compositor = effect_modes.CompositionEffect(ComboEffect())
-    anteriores: dict[int, float] = {}
+    anteriores: dict[int, base.Color] = {}
 
     for frame in range(int(PERIOD * ctx.render_fps) + 1):
         canales = compositor.render(replace(ctx, now=ANCHOR + frame / ctx.render_fps))
         limitados = sync._limit_ceiling(canales, anteriores, cfg)
         if 1 in anteriores:
-            assert abs(max(limitados[1]) - anteriores[1]) <= cfg.ceiling_max_step + 1e-12
-        anteriores = {canal: max(color) for canal, color in limitados.items()}
+            assert abs(max(limitados[1]) - max(anteriores[1])) <= cfg.ceiling_max_step + 1e-12
+        anteriores = limitados
 
 
 def test_channel_modes_y_channel_gain_son_tuplas_en_yaml_y_entorno(tmp_path):

@@ -186,6 +186,7 @@ class CompositionEffect:
             and len(modes) == channel_count
             and len(gain) == len(modes)
             and all(name in EFFECTS for name in modes)
+            and all(0.0 <= value <= 1.0 for value in gain)
         )
 
     def render(self, ctx: RenderContext) -> Channels:

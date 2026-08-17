@@ -102,6 +102,13 @@ GOLDEN: dict[str, dict[float, tuple[float, float, float]]] = {
         0.99: (0.699866554386, 0.303405989332, 0.083852130596),
     },
     "harmony": {
+        0.0: (1.0, 0.0, 0.0),
+        0.25: (1.0, 0.0, 0.0),
+        0.5: (1.0, 0.0, 0.0),
+        0.75: (1.0, 0.0, 0.0),
+        0.99: (1.0, 0.0, 0.0),
+    },
+    "harmony@0.045": {
         0.0: (0.891961538462, 0.416798076923, 0.293836538462),
         0.25: (0.891961538462, 0.416798076923, 0.293836538462),
         0.5: (0.891961538462, 0.416798076923, 0.293836538462),
@@ -143,15 +150,39 @@ GOLDEN: dict[str, dict[float, tuple[float, float, float]]] = {
         0.75: (0.690349152401, 0.299280007390, 0.082711835451),
         0.99: (0.783738430158, 0.339766105823, 0.093900954099),
     },
+    "sustain@0.035": {
+        0.0: (0.783923076923, 0.339846153846, 0.093923076923),
+        0.25: (0.462018551251, 0.200294177159, 0.055355181148),
+        0.5: (0.323879827082, 0.140408308905, 0.038804559795),
+        0.75: (0.315727379625, 0.136874061739, 0.037827802033),
+        0.99: (0.727823846310, 0.315526028162, 0.087201738430),
+    },
+}
+
+GOLDEN_LOOK = {
+    **{nombre: nombre for nombre in MODOS_CONGELADOS},
+    "harmony@0.045": "harmony",
+    "sustain@0.035": "sustain",
+}
+"""Cada look tiene un caso saturado y las rampas tienen tambien uno parcial.
+
+Con tonalidad 0.5 las mezclas de harmony y sustain ya valen 1.0: cambiar el
+final de la rampa no moveria el RGB y el dorado seria ciego. 0.045 recorre la
+rampa de harmony 0.03..0.06, y 0.035 la de sustain 0.03..0.045.
+"""
+
+GOLDEN_TONALITY = {
+    **{nombre: TONALIDAD for nombre in MODOS_CONGELADOS},
+    "harmony@0.045": 0.045,
+    "sustain@0.035": 0.035,
 }
 
 
-@pytest.mark.parametrize("nombre", MODOS_CONGELADOS)
+@pytest.mark.parametrize("nombre", GOLDEN)
 def test_el_render_de_los_looks_no_cambia(nombre):
-    efecto = get_effect(nombre)
+    efecto = get_effect(GOLDEN_LOOK[nombre])
     for fase in FASES:
-        tonalidad = 0.045 if nombre == "harmony" else TONALIDAD
-        obtenido = efecto.render(contexto(fase, tonality=tonalidad))[0]
+        obtenido = efecto.render(contexto(fase, tonality=GOLDEN_TONALITY[nombre]))[0]
         assert obtenido == pytest.approx(GOLDEN[nombre][fase], abs=1e-9), (
             f"{nombre} cambio en fase {fase}"
         )

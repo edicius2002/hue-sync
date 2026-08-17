@@ -246,6 +246,10 @@ class EffectsConfig:
     channel_gain: tuple[float, ...] = (0.7, 1.0)
     """Multiplicador de brillo por canal, mismo orden que `channel_modes`.
 
+    Cada valor va de 0.0 a 1.0. Por encima de 1.0 podria saturar solo un
+    componente RGB y desplazar el matiz; se rechaza la composicion completa y
+    se usa el fallback en vez de mandar un color que no se pidio.
+
     Hace falta porque la jerarquia NO sale sola de los looks. Medido sobre los
     pares de dos canales, la razon de brillo techo/pared va de 0.40 a 8.12
     segun la combinacion, y ninguna cae donde se quiere (techo dominante, pared

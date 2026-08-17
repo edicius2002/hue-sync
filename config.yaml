@@ -136,7 +136,8 @@ effects:
   # el channel_id del bridge, o sea el ORDEN EN QUE ANADISTE LAS LUCES AL AREA,
   # no una posicion geometrica: usa `run.py identify` para saber cual es cual.
   channel_modes: [combo, harmony]
-  # Multiplicador de brillo por canal. Hace falta porque la jerarquia no sale
+  # Multiplicador de brillo 0.0..1.0 por canal. Fuera de ese rango se rechaza
+  # la composicion para no saturar RGB y cambiar el matiz. Hace falta porque la jerarquia no sale
   # sola de los looks: medida sobre los pares, la razon techo/pared va de 0.40
   # a 8.12 y con combo+harmony queda en 0.45, o sea el techo mas oscuro que el
   # acento. Al reves de lo que se quiere.
