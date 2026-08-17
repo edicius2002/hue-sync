@@ -87,8 +87,8 @@ def test_la_ganancia_multiplica_el_brillo_de_su_canal():
     assert canales[1] == esperado
 
 
-def test_ganancia_uno_y_mode_explicito_producen_un_espejo_exacto():
-    """Falla si el atajo `--mode X` deja una ganancia o look configurado activo."""
+def test_mode_explicito_produce_el_mismo_look_antes_de_la_salida():
+    """Falla si `--mode X` deja activo un look configurado antes del pipeline."""
     ctx = make_ctx()
     espejo = effect_modes.CompositionEffect(
         get_effect("spectrum"),
@@ -173,10 +173,11 @@ def test_channel_saturation_multiplica_la_saturacion_sin_mover_hue_ni_brillo():
 
 def test_channel_hue_shift_preserva_la_distancia_circular_entre_dos_colores():
     """El offset no puede borrar que dos acordes distintos son distintos."""
+    cfg = EffectsConfig()
     primero = colorsys.hsv_to_rgb(0.95, 0.8, 0.7)
     segundo = colorsys.hsv_to_rgb(0.12, 0.8, 0.7)
-    desplazado_a = base.channel_hue_shift(primero, 0.08)
-    desplazado_b = base.channel_hue_shift(segundo, 0.08)
+    desplazado_a = base.channel_hue_shift(primero, cfg.channel_hue_shift[1])
+    desplazado_b = base.channel_hue_shift(segundo, cfg.channel_hue_shift[1])
 
     def distancia(a, b):  # noqa: ANN001
         recta = abs(a - b)
@@ -184,6 +185,7 @@ def test_channel_hue_shift_preserva_la_distancia_circular_entre_dos_colores():
 
     original = distancia(colorsys.rgb_to_hsv(*primero)[0], colorsys.rgb_to_hsv(*segundo)[0])
     movida = distancia(colorsys.rgb_to_hsv(*desplazado_a)[0], colorsys.rgb_to_hsv(*desplazado_b)[0])
+    assert colorsys.rgb_to_hsv(*desplazado_a)[0] == pytest.approx((0.95 + 0.08) % 1.0)
     assert movida == pytest.approx(original)
 
 
@@ -196,9 +198,24 @@ def test_channel_normalize_mezcla_el_crudo_con_el_pico_de_referencia():
 
 def test_peak_reference_sube_en_un_frame_y_baja_lento_con_suelo():
     """El ataque evita sobrebrillo al entrar un pico; release 120 s no infla cortes."""
-    pico = base.next_peak(0.6, 0.9, 1 / 50, floor=0.6, release_seconds=120.0)
-    liberado = base.next_peak(pico, 0.2, 1 / 50, floor=0.6, release_seconds=120.0)
+    cfg = EffectsConfig()
+    suelo = base.next_peak(
+        None, 0.2, 1 / 50,
+        floor=cfg.channel_normalize_floor,
+        release_seconds=cfg.channel_normalize_release,
+    )
+    pico = base.next_peak(
+        suelo, 0.9, 1 / 50,
+        floor=cfg.channel_normalize_floor,
+        release_seconds=cfg.channel_normalize_release,
+    )
+    liberado = base.next_peak(
+        pico, 0.2, 1 / 50,
+        floor=cfg.channel_normalize_floor,
+        release_seconds=cfg.channel_normalize_release,
+    )
 
+    assert suelo == 0.6
     assert pico == 0.9
     assert liberado == pytest.approx(0.9 * np.exp(-1 / (50 * 120)))
     assert liberado > 0.6

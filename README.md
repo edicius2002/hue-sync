@@ -289,8 +289,14 @@ canales; los controles fisicos por canal siguen aplicandose.
 
 El seguidor de pico de `channel_normalize` sube en un frame y baja en 120 s,
 con suelo 0.60. El suelo limita la ganancia inicial a 1.67x; el release evita
-que un breakdown se convierta en luz plena. Sobre summer.wav, normalizacion
-plena deja el techo en 0.936 durante t=8..17 s y en 0.971 durante t=20..24 s.
+que el seguidor nivele secciones hasta volverlas iguales. En summer.wav, la
+razon t=8..17 / t=20..24 es 1.003 con release de 12 s y 0.964 con 120 s.
+
+Levantar el suelo con `channel_range` tiene un precio explicito: reduce la
+dinamica relativa. El CV de summer pasa de 0.526 crudo a 0.219 con rango;
+`channel_normalize` queda en 0.221, asi que no es quien comprime. A cambio,
+la normalizacion recupera recorrido absoluto de 0.241 a 0.348, por encima de
+0.321 crudo.
 
 El canal configurado como `ceiling_channel` se recorta en la salida a
 `ceiling_max_step` de brillo por frame, preservando el matiz RGB. El orden es

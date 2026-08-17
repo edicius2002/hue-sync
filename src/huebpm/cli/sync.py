@@ -107,7 +107,7 @@ def run_sync(
             "recorte cenital. Revisa channel_range, channel_saturation, "
             "channel_hue_shift y channel_normalize."
         )
-    elif cfg.effects.ceiling_clamp and cfg.effects.ceiling_channel is not None:
+    if composition_valid and cfg.effects.ceiling_clamp and cfg.effects.ceiling_channel is not None:
         ceiling = cfg.effects.ceiling_channel
         if 0 <= ceiling < channel_count:
             look = channel_modes[ceiling]
@@ -150,7 +150,7 @@ def run_sync(
                 channels = active.render(ctx)
                 channels, peak_references = _output_pipeline(
                     channels, peak_references, previous_colors, cfg.effects,
-                    cfg.render.fps, apply_controls=controls_valid,
+                    cfg.render.fps, apply_controls=controls_valid and not state.silent,
                 )
                 previous_colors = channels.copy()
 

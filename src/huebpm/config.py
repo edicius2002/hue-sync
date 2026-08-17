@@ -289,9 +289,10 @@ class EffectsConfig:
     """Segundos de release exponencial del pico de referencia.
 
     El ataque es inmediato para que un pico nuevo nunca se sobreamplifique.
-    Con 120 s, la referencia apenas cae 7.2% durante un breakdown de nueve
-    segundos. En summer.wav con normalizacion plena deja ese tramo en 0.936
-    contra 0.971 en t=20..24 s; a 12 s quedaban 0.999 y 0.996, sin estructura.
+    A 12 s, la razon de brillo entre t=8..17 y t=20..24 de summer.wav es
+    1.003: el contraste entre secciones queda en cero. A 120 s es 0.964. La
+    referencia lenta no dice cual seccion "debe" ser mas apagada; evita que
+    el seguidor nivele ambas hasta volverlas indistinguibles.
     """
 
     ceiling_channel: int | None = None

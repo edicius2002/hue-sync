@@ -252,6 +252,12 @@ def channel_range(color: Color, minimo: float, maximo: float) -> Color:
     Una ganancia solo multiplica: no puede levantar el suelo 0.20 de combo sin
     bajar su pico. Este mapeo manda 0.20 a 0.40 en un rango 0.25..1.0 y deja
     que 1.0 siga siendo 1.0. Negro se conserva: no hay hue que pueda escalarse.
+
+    El suelo tiene un coste medible: el CV de summer cae de 0.526 crudo a
+    0.219 con rango; kobosil cae 0.482 -> 0.211 y billie 0.497 -> 0.192. Es
+    una perdida de dinamica relativa de ~58%, deliberada para levantar el
+    suelo. La normalizacion posterior es neutra en ese CV (0.219 -> 0.221 en
+    summer) y recupera recorrido absoluto: 0.241 -> 0.348, sobre 0.321 crudo.
     """
     brillo = max(color)
     if brillo <= 1e-9:
