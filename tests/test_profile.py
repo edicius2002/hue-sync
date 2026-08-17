@@ -13,7 +13,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from huebpm.cli.profile import ProfileRow, profile_file, run_profile
+from huebpm.cli.profile import (
+    WARMUP_SECONDS,
+    ProfileRow,
+    format_table,
+    profile_file,
+    run_profile,
+)
 from huebpm.config import Config
 from huebpm.testing.synth import click_track, concatenate_sections, sustained_pad
 
@@ -93,13 +99,67 @@ def test_run_profile_imprime_una_fila_por_fichero(tmp_path, capsys):
     assert "a.wav" in out
     assert "b.wav" in out
     assert out.index("a.wav") < out.index("b.wav")
+    assert "offb/s" in out
+    assert "on/s" in out
+    assert "contratiempo" in out
 
 
-def test_profile_file_devuelve_fila_con_campos(tmp_path):
-    audio, _ = click_track(120.0, 10.0, SR)
-    ruta = escribir_wav(tmp_path / "x.wav", audio)
-    fila = profile_file(Config(), ruta)
-    assert isinstance(fila, ProfileRow)
-    assert fila.clock_lock_pct >= 0.0
-    assert fila.bar_lock_pct >= 0.0
-    assert fila.onsets_per_s >= 0.0
+def test_tabla_separa_onsets_totales_de_contratiempos():
+    """Quien calibre onset_delta tiene que ver las dos tasas, no una sola."""
+    fila = ProfileRow(
+        name="x.wav",
+        bpm=120.0,
+        clock_lock_pct=100.0,
+        tempo_score=0.5,
+        bar_lock_pct=10.0,
+        bar_conf=0.1,
+        tonal_p50=0.0,
+        tonal_max=0.0,
+        sustain_p50=0.0,
+        onsets_per_s=2.0,
+        offbeat_per_s=0.9,
+        harmony_mix_pct=0.0,
+        sustain_mix_pct=0.0,
+    )
+    tabla = format_table([fila])
+    assert "on/s" in tabla
+    assert "offb/s" in tabla
+    assert "2.00" in tabla
+    assert "0.90" in tabla
+
+
+def test_columnas_de_calibracion_distinguen_click_de_pad(tmp_path):
+    """hmix/smix/tonal/onsets no pueden clavarse a cero ni invertirse.
+
+    hmix es la evidencia de la puerta de harmony: si mintiera, la
+    recalibracion de otro worker seria falsa y nada lo detectaria.
+    """
+    click, _ = click_track(120.0, 12.0, SR)
+    pad = sustained_pad(12.0, SR)
+    fila_click = profile_file(Config(), escribir_wav(tmp_path / "click.wav", click))
+    fila_pad = profile_file(Config(), escribir_wav(tmp_path / "pad.wav", pad))
+
+    assert fila_click.harmony_mix_pct == 0.0
+    assert fila_pad.harmony_mix_pct > 0.0
+
+    assert fila_click.sustain_mix_pct == 0.0
+    assert fila_pad.sustain_mix_pct > 0.0
+
+    assert fila_click.tonal_p50 < 0.05
+    assert fila_pad.tonal_p50 > 0.0
+    assert fila_pad.tonal_max > 0.0
+
+    assert fila_click.onsets_per_s > 0.0
+    assert fila_click.onsets_per_s >= fila_click.offbeat_per_s
+    assert fila_pad.onsets_per_s < fila_click.onsets_per_s
+
+
+def test_warmup_cambia_las_medianas(tmp_path):
+    """Sin el salto, chroma y sustain arrancan en cero y bajan el p50 del pad."""
+    ruta = escribir_wav(tmp_path / "pad.wav", sustained_pad(12.0, SR))
+    cfg = Config()
+    con = profile_file(cfg, ruta, warmup=WARMUP_SECONDS)
+    sin = profile_file(cfg, ruta, warmup=0.0)
+    assert con.sustain_p50 != sin.sustain_p50
+    assert con.tonal_p50 != sin.tonal_p50
+    assert con.sustain_p50 > sin.sustain_p50

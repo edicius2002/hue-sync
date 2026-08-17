@@ -6,6 +6,12 @@ de calibracion (donde poner la puerta de tonalidad, si `bars` aporta, si
 esa vista: BPM y evidencia, compas, tonalidad, sostenimiento, onsets y las
 mezclas efectivas que de verdad activan un modo.
 
+`on/s` es la tasa del OnsetDetector completo. `offb/s` son solo los
+contratiempos: `_detect_onsets` descarta lo que cae dentro de
+`onset_offbeat_margin` del pulso, y `last_onset_time` publica ese resto.
+Calibrar `onset_delta` contra `offb/s` es leer menos de la mitad de la
+salida del detector (en billie, 43 de 92).
+
 Los primeros segundos se descartan: chroma (FFT 8192) y sustain (ventana
 2.5 s) arrancan en cero y contaminarian las medianas. El muestreo es a los
 50 fps del render, no a la cadencia de los bloques de audio: son ritmos
@@ -51,6 +57,9 @@ class ProfileRow:
     tonal_max: float
     sustain_p50: float
     onsets_per_s: float
+    """Tasa del OnsetDetector, incluyendo golpes en el pulso."""
+    offbeat_per_s: float
+    """Tasa publicada: solo contratiempos. Es lo que ven las luces."""
     harmony_mix_pct: float
     sustain_mix_pct: float
 
@@ -103,9 +112,19 @@ def profile_file(
     sust = []
     hmix = []
     smix = []
-    onsets: set[float] = set()
+    offbeats: set[float] = set()
+    detectados: set[float] = set()
     n_frames = 0
     next_render = 0.0
+    original_push = engine.onsets.push
+
+    def push_contado(value: float, t: float):
+        onset = original_push(value, t)
+        if onset is not None:
+            detectados.add(engine.mapper.to_wall(onset.t))
+        return onset
+
+    engine.onsets.push = push_contado  # type: ignore[method-assign]
 
     def tomar(t_real: float) -> None:
         nonlocal clock_lock, bar_lock, n_frames
@@ -124,7 +143,7 @@ def profile_file(
         smix.append(float(sustain_mix(ctx)))
         golpe = float(state.last_onset_time)
         if warmup <= golpe <= t_real:
-            onsets.add(golpe)
+            offbeats.add(golpe)
 
     for offset in range(0, len(audio) - block, block):
         t = (offset + block) / rate
@@ -133,7 +152,9 @@ def profile_file(
             tomar(next_render)
             next_render += dt
 
-    ventana = max(1e-9, (len(audio) / rate) - warmup)
+    duracion = len(audio) / rate
+    ventana = max(1e-9, duracion - warmup)
+    n_detectados = sum(1 for t in detectados if warmup <= t <= duracion)
     if n_frames == 0:
         return ProfileRow(
             name=path.name,
@@ -146,6 +167,7 @@ def profile_file(
             tonal_max=0.0,
             sustain_p50=0.0,
             onsets_per_s=0.0,
+            offbeat_per_s=0.0,
             harmony_mix_pct=0.0,
             sustain_mix_pct=0.0,
         )
@@ -160,7 +182,8 @@ def profile_file(
         tonal_p50=float(np.median(tonal)),
         tonal_max=float(np.max(tonal)),
         sustain_p50=float(np.median(sust)),
-        onsets_per_s=len(onsets) / ventana,
+        onsets_per_s=n_detectados / ventana,
+        offbeat_per_s=len(offbeats) / ventana,
         harmony_mix_pct=100.0 * float(np.mean(np.asarray(hmix) > 0.0)),
         sustain_mix_pct=100.0 * float(np.mean(np.asarray(smix) > 0.0)),
     )
@@ -171,7 +194,7 @@ def format_table(rows: list[ProfileRow]) -> str:
     header = (
         f"{'tema':<14} {'bpm':>6} {'lock':>5} {'score':>6} "
         f"{'compas':>6} {'bconf':>6} {'ton p50':>8} {'ton max':>8} "
-        f"{'sus p50':>8} {'on/s':>5} {'hmix':>6} {'smix':>6}"
+        f"{'sus p50':>8} {'on/s':>5} {'offb/s':>6} {'hmix':>6} {'smix':>6}"
     )
     lineas = [header]
     for r in rows:
@@ -181,7 +204,7 @@ def format_table(rows: list[ProfileRow]) -> str:
             f"{r.name:<14} {bpm} {r.clock_lock_pct:4.0f}% {score} "
             f"{r.bar_lock_pct:5.0f}% {r.bar_conf:6.3f} {r.tonal_p50:8.3f} "
             f"{r.tonal_max:8.3f} {r.sustain_p50:8.3f} {r.onsets_per_s:5.2f} "
-            f"{r.harmony_mix_pct:5.1f}% {r.sustain_mix_pct:5.1f}%"
+            f"{r.offbeat_per_s:6.2f} {r.harmony_mix_pct:5.1f}% {r.sustain_mix_pct:5.1f}%"
         )
     return "\n".join(lineas)
 
@@ -212,6 +235,8 @@ def run_profile(
         "lock/compas: % de frames de render (50 fps) enganchados, tras "
         f"{WARMUP_SECONDS:.0f} s de arranque.  "
         "score: pico de la curva de tempo (no la confianza del reloj).  "
+        "on/s: OnsetDetector completo.  offb/s: solo contratiempos "
+        "(last_onset_time; lo que ven las luces).  "
         "hmix/smix: % de frames con harmony_mix>0 y sustain_mix>0."
     )
     return 0
