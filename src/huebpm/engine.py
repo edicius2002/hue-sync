@@ -282,6 +282,18 @@ class AnalysisEngine:
         varios compases se compare contra el estribillo, sin mezclar secciones
         de una cancion entera. El percentil, en vez del maximo, evita que un
         unico golpe atipico aplaste todos los demas.
+
+        Es una senal de cola baja, no de mediana: en techno programado casi
+        todos los golpes son de los mas fuertes y una mediana alta es verdad
+        del material (kobosil: p50 crudo 0.972, fuerza p50 0.975). Lo que
+        distingue los arreglos es la cola: summer da p10/p25/p50 de
+        0.401/0.508/0.764 por beat, mientras kobosil da 0.923/0.953/0.974.
+
+        El limite inferior si esta medido. En malugi, p25 vale 0.889 con 2.5 s,
+        0.852 con 5 s, 0.421 con 10 s y 0.195 con 20 s; en summer la fraccion
+        0.3..0.8 sube de 25.5% a 27.7%, 40.4% y 51.1%. Veinte segundos y el
+        tema entero coinciden a tres decimales en extractos de 25 s, pero esos
+        extractos no distinguen 20 s de 30 o 60: solo justifican >= 10 s.
         """
         if self.clock.generation != self._clock_generation:
             # El reloj se reengancho o salto de octava: los indices de beat ya
@@ -304,7 +316,9 @@ class AnalysisEngine:
                 self._current_beat = index
             elif index != self._current_beat:
                 self.bars.push_beat(self._current_beat, self._beat_energy)
-                beat_t = self.clock.beat_time(index) or self.mapper.to_wall(f.t)
+                beat_t = self.clock.beat_time(self._current_beat)
+                if beat_t is None:
+                    beat_t = self.mapper.to_wall(f.t)
                 self._beat_energy_history.append((beat_t, self._beat_energy))
                 oldest = beat_t - BEAT_STRENGTH_HISTORY_SECONDS
                 while self._beat_energy_history and self._beat_energy_history[0][0] < oldest:

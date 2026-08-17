@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from huebpm.analysis.odf import Frame, SpectralAnalyzer
-from huebpm.analysis.onsets import Onset
+from huebpm.analysis.onsets import Onset, OnsetRate
 from huebpm.analysis.tempo import TempoEstimate
 from huebpm.config import AnalysisConfig
 from huebpm.engine import AnalysisEngine
@@ -19,9 +19,9 @@ from huebpm.engine import AnalysisEngine
 SR = 48000
 
 
-def _tono(freq: float, duration: float = 1.0) -> np.ndarray:
+def _tono(freq: float, duration: float = 1.0, amplitude: float = 0.5) -> np.ndarray:
     t = np.arange(int(SR * duration)) / SR
-    return (0.5 * np.sin(2 * np.pi * freq * t)).astype(np.float32)
+    return (amplitude * np.sin(2 * np.pi * freq * t)).astype(np.float32)
 
 
 def _frames(audio: np.ndarray) -> list[Frame]:
@@ -82,6 +82,46 @@ def test_la_fuerza_conserva_el_contraste_de_los_beats_fuertes():
     engine._accumulate_beat_energy([_frame(len(energias) * 0.5 + 0.01, 0.0)])
 
     assert 0.3 < engine._beat_strength < 0.8
+
+
+def test_la_fuerza_se_normaliza_con_el_percentil_90():
+    engine = _engine_con_reloj()
+    energias = (0.2, 0.4, 0.6, 0.8, 1.0, 0.6)
+    engine._accumulate_beat_energy([_frame(0.10, energias[0])])
+    for index, energia in enumerate(energias[1:], start=1):
+        engine._accumulate_beat_energy([_frame(index * 0.5 + 0.01, energia)])
+    engine._accumulate_beat_energy([_frame(len(energias) * 0.5 + 0.01, 0.0)])
+
+    # p90(0.2, 0.4, 0.6, 0.8, 1.0, 0.6) = 0.9; p50 y p100 no dan 2/3.
+    assert engine._beat_strength == pytest.approx(2.0 / 3.0)
+
+
+def test_la_historia_guarda_el_tiempo_del_beat_que_cerro():
+    engine = _engine_con_reloj()
+    engine._accumulate_beat_energy([_frame(0.10, 0.8)])
+    engine._accumulate_beat_energy([_frame(0.51, 0.2)])
+
+    assert engine._beat_energy_history[0][0] == 0.0
+
+
+def test_la_ventana_de_onsets_cubre_dos_segundos():
+    rate = OnsetRate()
+    for t in (0.1, 0.5, 1.9):
+        rate.push(t)
+
+    assert rate.advance(2.1) == pytest.approx(1.0)
+
+
+def test_subgrave_bajo_tambien_llega_al_techo_adaptativo():
+    def nivel(amplitud: float) -> float:
+        engine = AnalysisEngine(SR, AnalysisConfig())
+        audio = _tono(50.0, 1.2, amplitud)
+        for start in range(0, len(audio) - 256, 256):
+            engine.feed(audio[start : start + 256], start, wall_t=(start + 256) / SR)
+        return engine.state.sub_bass
+
+    assert nivel(0.0001) > 0.9
+    assert nivel(0.5) > 0.9
 
 
 def test_la_tasa_descarta_los_golpes_en_el_pulso():
