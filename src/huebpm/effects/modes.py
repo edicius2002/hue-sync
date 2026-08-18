@@ -57,6 +57,34 @@ class SpectrumEffect:
         return fill(scale(spectrum_color(ctx), level), ctx.channel_count)
 
 
+class WashEffect:
+    """Color fijo que respira con la energia, pensado para el techo.
+
+    Dos matices distintos se suman a marron sobre las paredes de un cuarto
+    pequeno. Reutilizar `idle_color` deja un unico color estable mientras la
+    energia conserva el movimiento; es el intermedio entre `idle` plano y
+    `spectrum`, que cambia de matiz. En render real a 50 fps tras el warmup,
+    Billie llega a p99 0.52 y maximo 0.65 por frame; Summer llega a 0.31.
+    Como el color es fijo, ``max(RGB) = nivel * max(idle_color)``: transmite
+    el salto de energia entero, mientras la mezcla de color de `spectrum`
+    amortigua su maximo RGB. Es el look mas abrupto y depende de `limit_slope`
+    en la salida, no de una suavidad propia.
+
+    En `summer.wav` se satura casi todo el tiempo (media de brillo crudo 0.925,
+    minimo 0.825, CV 0.036), donde degenera visualmente en un `idle` brillante.
+    Es una calibracion de `beat_floor`/energia, no una razon para cambiar el
+    color fijo.
+    """
+
+    name = "wash"
+
+    def render(self, ctx: RenderContext) -> Channels:
+        bands = list(ctx.state.bands) + [0.0, 0.0, 0.0]
+        energy = max(bands[0], bands[1], bands[2])
+        level = ctx.cfg.beat_floor + (1.0 - ctx.cfg.beat_floor) * energy
+        return fill(scale(ctx.cfg.idle_color, level), ctx.channel_count)
+
+
 class ComboEffect:
     """El modo por defecto: color del espectro, brillo del beat.
 
@@ -156,7 +184,7 @@ class CompositionEffect:
     """Compone un look y una ganancia por canal sin ser un look registrable.
 
     Un compositor dentro de ``EFFECTS`` podria componerse a si mismo y entrar
-    en recursion. Solo se aceptan sus siete looks reales; si la configuracion
+    en recursion. Solo se aceptan sus ocho looks reales; si la configuracion
     no describe el area entera se conserva el fallback para no dejar un canal
     mostrando su RGB viejo.
     """
@@ -207,7 +235,8 @@ class CompositionEffect:
 EFFECTS = {
     e.name: e
     for e in (ComboEffect(), HarmonyEffect(), BarsEffect(),
-              BeatFlashEffect(), SpectrumEffect(), SustainEffect(), IdleEffect())
+              BeatFlashEffect(), SpectrumEffect(), SustainEffect(), IdleEffect(),
+              WashEffect())
 }
 
 LOOK_MAX_STEPS = {
@@ -218,6 +247,7 @@ LOOK_MAX_STEPS = {
     "spectrum": 0.50,
     "sustain": 0.31,
     "idle": 0.00,
+    "wash": 0.65,
 }
 """Maximos medidos de brillo por frame a 50 fps sobre audio real.
 

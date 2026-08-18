@@ -20,7 +20,10 @@ from huebpm.state import AudioState
 
 ANCHOR = 100.0
 PERIOD = 0.5
-LOOKS = ("combo", "harmony", "bars", "beat_flash", "spectrum", "sustain", "idle")
+LOOKS = (
+    "combo", "harmony", "bars", "beat_flash", "spectrum", "sustain", "idle",
+    "wash",
+)
 
 
 def config_composicion(
@@ -72,7 +75,7 @@ def test_cada_look_real_se_puede_asignar_a_un_canal(look):
     assert effect_modes.CompositionEffect(ComboEffect()).render(ctx)[0] == get_effect(look).render(ctx)[0]
 
 
-def test_el_registro_contiene_solo_los_siete_looks_y_no_el_compositor():
+def test_el_registro_contiene_los_looks_y_no_el_compositor():
     """Falla si un compositor entra al registro y hace posible la recursion."""
     assert tuple(EFFECTS) == LOOKS
 
