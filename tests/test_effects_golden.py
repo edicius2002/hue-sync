@@ -1,4 +1,4 @@
-"""Red de seguridad: congela el render de los siete looks.
+"""Red de seguridad: congela el render de los ocho looks.
 
 Sin este fichero, "lo que ya funciona sigue igual" es una promesa; con el es
 verificable, porque cualquier retoque en `beat_envelope`, `spectrum_color` o el
@@ -52,8 +52,8 @@ modo nuevo, ese si tiene que responder a `sustain`, asi que recorrer el registro
 lo metería aqui y el control empezaria a fallar por la razon equivocada.
 """
 
-MODOS_CONGELADOS = (*MODOS_ORIGINALES, "sustain")
-"""Los SIETE looks. `sustain` entra ahora que esta calibrado y estable.
+MODOS_CONGELADOS = (*MODOS_ORIGINALES, "sustain", "wash")
+"""Los OCHO looks. `sustain` y `wash` entran ya calibrados y estables.
 
 Se congela por separado de la lista de arriba porque cumple otro papel:
 `MODOS_ORIGINALES` responde "ningun modo viejo lee la senal nueva" y esta
@@ -61,6 +61,11 @@ responde "el render de ningun look cambia por accidente".
 
 `roles` no esta: no es un look, es el compositor, y su render se define por el
 de los looks que compone.
+
+`harmony_energy` nunca llego a entrar: se midio a 0.0247 de `spectrum` en
+billie, por debajo de `ceiling_max_step` (0.03), o sea su distancia al vecino
+mas cercano cabia dentro de un solo paso recortado. Se descarto antes de
+mergear.
 """
 
 CAMPOS_NUEVOS = ("sub_bass", "beat_strength", "onset_rate", "energy_trend")
@@ -156,6 +161,17 @@ GOLDEN: dict[str, dict[float, tuple[float, float, float]]] = {
         0.5: (0.323879827082, 0.140408308905, 0.038804559795),
         0.75: (0.315727379625, 0.136874061739, 0.037827802033),
         0.99: (0.727823846310, 0.315526028162, 0.087201738430),
+    },
+    # Plano en fase a proposito: `wash` no lleva envolvente de beat, es
+    # `idle_color` escalado por la energia. Con bandas (0.9, 0.3, 0.1) el nivel
+    # es 0.12 + 0.88*0.9 = 0.912, y por eso las cinco fases coinciden. Si algun
+    # dia deja de ser plano, el look habra dejado de ser lo que dice ser.
+    "wash": {
+        0.0: (0.912, 0.5016, 0.1824),
+        0.25: (0.912, 0.5016, 0.1824),
+        0.5: (0.912, 0.5016, 0.1824),
+        0.75: (0.912, 0.5016, 0.1824),
+        0.99: (0.912, 0.5016, 0.1824),
     },
 }
 
