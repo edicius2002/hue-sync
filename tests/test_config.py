@@ -47,7 +47,7 @@ analysis:
 render:
   fps: 40.0
 effects:
-  mode: beat_flash
+  mode: spectrum
 """)
     cfg = load_config(ruta)
     assert cfg.audio.blocksize == 512
@@ -58,7 +58,7 @@ effects:
     assert cfg.analysis.sustain_energy_full == 0.25
     assert cfg.analysis.sustain_energy_zero == 0.50
     assert cfg.render.fps == 40.0
-    assert cfg.effects.mode == "beat_flash"
+    assert cfg.effects.mode == "spectrum"
 
 
 def test_clave_desconocida_falla_en_voz_alta(tmp_path):
@@ -118,7 +118,7 @@ def test_el_config_del_repo_carga():
     dataclass y no al yaml (o al reves), esto lo detecta."""
     cfg = load_config()
     assert cfg.render.fps > 0
-    assert cfg.effects.mode in ("combo", "beat_flash", "spectrum")
+    assert cfg.effects.mode in ("combo", "wash", "spectrum")
 
 
 def test_credenciales_sin_fichero_dan_error_accionable(tmp_path):

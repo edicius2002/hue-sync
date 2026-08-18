@@ -16,7 +16,6 @@ from .base import (
     harmony_color,
     harmony_mix,
     onset_accent,
-    saturate,
     scale,
     spectrum_color,
     sustain_mix,
@@ -32,17 +31,6 @@ class IdleEffect:
     def render(self, ctx: RenderContext) -> Channels:
         color = scale(ctx.cfg.idle_color, ctx.cfg.idle_brightness)
         return fill(color, ctx.channel_count)
-
-
-class BeatFlashEffect:
-    """Golpe de brillo en cada beat, color fijo del reposo."""
-
-    name = "beat_flash"
-
-    def render(self, ctx: RenderContext) -> Channels:
-        brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
-        color = apply_onset_flash(ctx, ctx.cfg.idle_color)
-        return fill(scale(color, brillo), ctx.channel_count)
 
 
 class SpectrumEffect:
@@ -97,34 +85,6 @@ class ComboEffect:
     def render(self, ctx: RenderContext) -> Channels:
         brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
         color = apply_onset_flash(ctx, spectrum_color(ctx))
-        return fill(scale(color, brillo), ctx.channel_count)
-
-
-class BarsEffect:
-    """Un color por compas dentro de la frase, brillo del beat.
-
-    Es el modo que hace visible la estructura: la paleta avanza en el "1" de
-    cada compas y vuelve a empezar cada frase, asi que se ve el 4x4 de la
-    musica en vez de un parpadeo uniforme. Sin enganche de compas cae a color
-    espectral, porque rotar una paleta en tiempos arbitrarios se ve peor que
-    no rotarla.
-    """
-
-    name = "bars"
-
-    def render(self, ctx: RenderContext) -> Channels:
-        if ctx.bar_locked:
-            paleta = ctx.cfg.phrase_palette
-            compas = int(ctx.phrase_phase * len(paleta)) % len(paleta)
-            base = saturate(paleta[compas], ctx.cfg.saturation_boost)
-        else:
-            base = spectrum_color(ctx)
-
-        # El acento va fuera del if a proposito: el camino de respaldo se
-        # quedaba sin onsets, que es exactamente el fallo que dejo `combo`
-        # sin la feature entera.
-        color = apply_onset_flash(ctx, base)
-        brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
         return fill(scale(color, brillo), ctx.channel_count)
 
 
@@ -234,14 +194,12 @@ class CompositionEffect:
 
 EFFECTS = {
     e.name: e
-    for e in (ComboEffect(), HarmonyEffect(), BarsEffect(),
-              BeatFlashEffect(), SpectrumEffect(), SustainEffect(), IdleEffect(),
+    for e in (ComboEffect(), HarmonyEffect(),
+              SpectrumEffect(), SustainEffect(), IdleEffect(),
               WashEffect())
 }
 
 LOOK_MAX_STEPS = {
-    "beat_flash": 0.62,
-    "bars": 0.62,
     "combo": 0.55,
     "harmony": 0.51,
     "spectrum": 0.50,

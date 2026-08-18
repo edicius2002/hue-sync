@@ -114,7 +114,7 @@ analysis:
   downbeat_offset_hold: 8           # compases antes de mover el "1"
 
 effects:
-  mode: combo              # combo | harmony | bars | beat_flash | spectrum | sustain | idle | wash
+  mode: combo              # combo | harmony | spectrum | sustain | wash | idle
 
   # El brillo sube durante esta fraccion del beat ANTES del golpe. Es lo que
   # convierte el efecto en algo que se anticipa al ritmo en vez de reaccionar,
@@ -155,8 +155,8 @@ effects:
   # el techo y el 0 la pared izquierda, verificado con `run.py identify`.
   ceiling_channel: 1
   # Sobre audio real NINGUN look activo respeta esta cota por si solo: los
-  # maximos por frame van de 0.31 (sustain) a 0.62 (bars, beat_flash), y hasta
-  # harmony llega a 0.47. Solo idle cumple. Por eso se recorta siempre.
+  # maximos por frame van de 0.31 (sustain) a 0.65 (wash), y hasta harmony
+  # llega a 0.51. Solo idle cumple. Por eso se recorta siempre.
   ceiling_max_step: 0.03
   # A false se desactiva la proteccion entera, para ver un look sin recortar a
   # sabiendas. No lo dejes en false: el fallo silencioso seria un techo
@@ -166,13 +166,6 @@ effects:
   # Cuanto mas brillante es el "1" del compas. A 0 todos los beats pesan igual,
   # que es lo que hacia que el efecto pareciera sincronizado pero no musical.
   downbeat_accent: 0.35
-
-  # Un color por compas dentro de la frase, para el modo `bars`.
-  phrase_palette:
-    - [1.0, 0.15, 0.05]
-    - [1.0, 0.55, 0.0]
-    - [0.15, 0.9, 0.4]
-    - [0.2, 0.35, 1.0]
 
   # Golpe de brillo extra en los onsets fuera de tiempo. Aditivo sobre la
   # envolvente del beat, no la sustituye.

@@ -21,8 +21,7 @@ from huebpm.state import AudioState
 ANCHOR = 100.0
 PERIOD = 0.5
 LOOKS = (
-    "combo", "harmony", "bars", "beat_flash", "spectrum", "sustain", "idle",
-    "wash",
+    "combo", "harmony", "spectrum", "sustain", "idle", "wash",
 )
 
 

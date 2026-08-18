@@ -210,7 +210,7 @@ class RenderConfig:
 @dataclass
 class EffectsConfig:
     mode: str = "combo"
-    """combo | harmony | bars | beat_flash | spectrum | sustain | idle"""
+    """combo | harmony | spectrum | sustain | wash | idle"""
 
     beat_attack: float = 0.08
     """Fraccion del beat que dura la subida ANTES del golpe.
@@ -236,8 +236,8 @@ class EffectsConfig:
     """Un LOOK por canal, en orden de canal.
 
     Toma los nombres reales de modo, no alias: un modo es un look y tiene un
-    solo nombre. Incluye tambien `bars`, `beat_flash` e `idle`, para que todos
-    los looks reales se puedan asignar a un canal.
+    solo nombre. Incluye tambien `idle`, para que todos los looks reales se
+    puedan asignar a un canal.
 
     El indice es el channel_id del bridge, que es el ORDEN EN QUE SE ANADIERON
     LAS LUCES AL AREA, no una posicion geometrica. Usa `run.py identify` para
@@ -312,8 +312,8 @@ class EffectsConfig:
     numero que ya justifican `gentle_brightness` y `SustainEffect`.
 
     Medido sobre audio real, NINGUN look activo lo respeta por si solo: los
-    maximos por frame van de 0.31 (`sustain`) a 0.62 (`bars`, `beat_flash`),
-    y hasta `harmony` llega a 0.47. Solo `idle` cumple. Por eso el recorte no
+    maximos por frame van de 0.31 (`sustain`) a 0.65 (`wash`), y hasta
+    `harmony` llega a 0.51. Solo `idle` cumple. Por eso el recorte no
     es una lista blanca de looks: se aplica siempre en el canal cenital.
 
     El test que sostenia esa cota barre la fase del beat con el audio
@@ -333,14 +333,6 @@ class EffectsConfig:
 
     A 0 todos los beats pesan igual, que es lo que hacia que el efecto
     pareciera sincronizado pero no musical."""
-    phrase_palette: tuple[tuple[float, float, float], ...] = (
-        (1.0, 0.15, 0.05),
-        (1.0, 0.55, 0.0),
-        (0.15, 0.9, 0.4),
-        (0.2, 0.35, 1.0),
-    )
-    """Un color por compas dentro de la frase, para el modo `bars`."""
-
     onset_accent: float = 0.5
     """Golpe de brillo extra en los onsets fuera de tiempo, de 0 a 1.
 
@@ -477,8 +469,6 @@ def _apply(obj: Any, data: dict | None) -> Any:
             value = tuple((int(m), float(w)) for m, w in value)
         elif key.endswith("_color"):
             value = tuple(float(x) for x in value)
-        elif key == "phrase_palette":
-            value = tuple(tuple(float(x) for x in c) for c in value)
         else:
             value = _a_tupla(value, getattr(obj, key, None))
         setattr(obj, key, value)

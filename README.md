@@ -54,11 +54,16 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe run.py sync
 
 # Igual pero sin bridge, para ver el efecto en consola.
-.\.venv\Scripts\python.exe run.py sync --dry-run --mode beat_flash
+.\.venv\Scripts\python.exe run.py sync --dry-run --mode spectrum
 ```
 
-Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`,
-`sustain`, `idle`, `wash`.
+Modos: `combo` (por defecto), `harmony`, `spectrum`, `sustain`, `wash`, `idle`.
+
+`bars` y `beat_flash` se retiraron por redundantes: medidos sobre audio real,
+`bars` salia identico a `combo` en el 81.1% de los frames de `summer.wav` —sin
+enganche de compas cae al mismo color espectral— y `beat_flash` correlacionaba
+0.999 con `bars` en brillo. El seguimiento de compas NO desaparece: sigue
+alimentando `downbeat_accent`, que acentua el "1" en todos los looks con pulso.
 
 `wash` conserva un color fijo (`idle_color`) y modula su brillo con la energia
 del audio; sirve para un techo que llena el cuarto, pero su pendiente depende
@@ -134,7 +139,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | harmony | bars | beat_flash | spectrum | sustain | idle | wash
+           modes.py        combo | harmony | spectrum | sustain | wash | idle
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico
@@ -318,10 +323,9 @@ Por eso puede subir el brillo durante la fraccion `beat_attack` ANTERIOR al
 golpe. Combinado con `latency_compensation_ms`, el comando sale del PC antes
 del beat y la luz enciende justo en el.
 
-`bars` va un paso mas alla y usa el compas: la paleta avanza en el "1" de cada
-compas y vuelve a empezar cada frase, asi que se ve el 4x4 de la musica en vez
-de un parpadeo uniforme. Ademas, en todos los modos el downbeat pega mas fuerte
-que el resto de tiempos (`downbeat_accent`).
+El compas tambien pesa: en todos los modos con pulso el "1" pega mas fuerte que
+el resto de tiempos (`downbeat_accent`). Esa es hoy la unica salida del
+`BarTracker`, desde que `bars` se retiro.
 
 `sustain` es un modo nuevo y no cambia `combo`: solo deja el destello por beat
 cuando coinciden una envolvente estable y contenido tonal. El detector mide el

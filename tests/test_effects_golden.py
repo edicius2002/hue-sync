@@ -1,4 +1,4 @@
-"""Red de seguridad: congela el render de los ocho looks.
+"""Red de seguridad: congela el render de los seis looks.
 
 Sin este fichero, "lo que ya funciona sigue igual" es una promesa; con el es
 verificable, porque cualquier retoque en `beat_envelope`, `spectrum_color` o el
@@ -44,8 +44,12 @@ BANDAS = (0.9, 0.3, 0.1)
 TONALIDAD = 0.5
 FASES = (0.0, 0.25, 0.5, 0.75, 0.99)
 
-MODOS_ORIGINALES = ("combo", "harmony", "bars", "beat_flash", "spectrum", "idle")
-"""Los seis de antes del modo sostenido.
+MODOS_ORIGINALES = ("combo", "harmony", "spectrum", "idle")
+"""Los de antes del modo sostenido que siguen vivos.
+
+Eran seis. `bars` y `beat_flash` se retiraron por redundantes: `bars` medido
+identico a `combo` en el 81.1% de los frames de summer, y `beat_flash`
+correlacionando 0.999 con `bars` en brillo. Quedan cuatro.
 
 Se listan a mano y NO se recorre `EFFECTS` a proposito: cuando se registre el
 modo nuevo, ese si tiene que responder a `sustain`, asi que recorrer el registro
@@ -53,7 +57,7 @@ lo metería aqui y el control empezaria a fallar por la razon equivocada.
 """
 
 MODOS_CONGELADOS = (*MODOS_ORIGINALES, "sustain", "wash")
-"""Los OCHO looks. `sustain` y `wash` entran ya calibrados y estables.
+"""Los SEIS looks. `sustain` y `wash` entran ya calibrados y estables.
 
 Se congela por separado de la lista de arriba porque cumple otro papel:
 `MODOS_ORIGINALES` responde "ningun modo viejo lee la senal nueva" y esta
@@ -119,20 +123,6 @@ GOLDEN: dict[str, dict[float, tuple[float, float, float]]] = {
         0.5: (0.891961538462, 0.416798076923, 0.293836538462),
         0.75: (0.891961538462, 0.416798076923, 0.293836538462),
         0.99: (0.891961538462, 0.416798076923, 0.293836538462),
-    },
-    "bars": {
-        0.0: (0.783923076923, 0.339846153846, 0.093923076923),
-        0.25: (0.347853250675, 0.150801262043, 0.041676853996),
-        0.5: (0.187432126684, 0.081255532891, 0.022456542702),
-        0.75: (0.128416493238, 0.055671088914, 0.015385785325),
-        0.99: (0.699866554386, 0.303405989332, 0.083852130596),
-    },
-    "beat_flash": {
-        0.0: (1.0, 0.55, 0.2),
-        0.25: (0.443733908231, 0.244053649527, 0.088746781646),
-        0.5: (0.239095049248, 0.131502277087, 0.047819009850),
-        0.75: (0.163812620164, 0.090096941090, 0.032762524033),
-        0.99: (0.892774527232, 0.491025989978, 0.178554905446),
     },
     "spectrum": {
         0.0: (0.714937846154, 0.309939692308, 0.085657846154),

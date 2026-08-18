@@ -19,7 +19,7 @@ ANCHOR = 100.0
 PERIOD = 0.5
 CAMPOS_NUEVOS = ("sub_bass", "beat_strength", "onset_rate")
 LOOKS_ESPERADOS = {
-    "combo", "harmony", "bars", "beat_flash", "spectrum", "sustain", "idle", "wash"
+    "combo", "harmony", "spectrum", "sustain", "idle", "wash"
 }
 
 
