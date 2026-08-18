@@ -246,6 +246,68 @@ def scale(color: Color, factor: float) -> Color:
     return (color[0] * factor, color[1] * factor, color[2] * factor)
 
 
+def channel_range(color: Color, minimo: float, maximo: float) -> Color:
+    """Remapea `max(RGB)` al rango del canal sin desplazar el matiz.
+
+    Una ganancia solo multiplica: no puede levantar el suelo 0.20 de combo sin
+    bajar su pico. Este mapeo manda 0.20 a 0.40 en un rango 0.25..1.0 y deja
+    que 1.0 siga siendo 1.0. Negro se conserva: no hay hue que pueda escalarse.
+
+    El suelo tiene un coste medible: el CV de summer cae de 0.526 crudo a
+    0.219 con rango; kobosil cae 0.482 -> 0.211 y billie 0.497 -> 0.192. Es
+    una perdida de dinamica relativa de ~58%, deliberada para levantar el
+    suelo. La normalizacion posterior es neutra en ese CV (0.219 -> 0.221 en
+    summer) y recupera recorrido absoluto: 0.241 -> 0.348, sobre 0.321 crudo.
+    """
+    brillo = max(color)
+    if brillo <= 1e-9:
+        return color
+    destino = minimo + (maximo - minimo) * brillo
+    return scale(color, destino / brillo)
+
+
+def channel_saturation(color: Color, multiplicador: float) -> Color:
+    """Ajusta saturacion HSV sin tocar hue ni brillo."""
+    hue, saturation, brillo = colorsys.rgb_to_hsv(*color)
+    return colorsys.hsv_to_rgb(hue, min(1.0, saturation * multiplicador), brillo)
+
+
+def channel_hue_shift(color: Color, offset: float) -> Color:
+    """Rota hue de forma circular sin cambiar saturacion ni brillo."""
+    hue, saturation, brillo = colorsys.rgb_to_hsv(*color)
+    return colorsys.hsv_to_rgb((hue + offset) % 1.0, saturation, brillo)
+
+
+def next_peak(
+    previo: float | None,
+    brillo: float,
+    dt: float,
+    *,
+    floor: float,
+    release_seconds: float,
+) -> float:
+    """Actualiza una referencia de pico con ataque inmediato y release lento.
+
+    El ataque en un frame evita normalizar por debajo de un pico que acaba de
+    entrar. El release exponencial de 120 s deja pasar un breakdown de 9 s sin
+    convertirlo en un nivelador: la referencia conserva el 93% de su valor.
+    El suelo 0.60 limita la primera ganancia a 1.67x aunque haya silencio.
+    """
+    actual = max(floor, brillo)
+    if previo is None or actual >= previo:
+        return actual
+    return max(floor, previo * math.exp(-dt / max(1e-9, release_seconds)))
+
+
+def channel_normalize(color: Color, pico: float, cantidad: float) -> Color:
+    """Mezcla el brillo crudo con el normalizado por el pico de referencia."""
+    brillo = max(color)
+    if brillo <= 1e-9 or cantidad <= 0.0:
+        return color
+    normalizado = scale(color, min(1.0, brillo / max(1e-9, pico)) / brillo)
+    return blend(color, normalizado, min(1.0, cantidad))
+
+
 def limit_slope(
     previo: Color | None, nuevo: Channels, canal: int, max_step: float
 ) -> Channels:

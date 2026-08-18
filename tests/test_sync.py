@@ -11,7 +11,7 @@ from huebpm.config import Config
 from huebpm.state import AudioState
 
 
-def ejecutar_frames(monkeypatch, estados, instantes, *, mode=None):
+def ejecutar_frames(monkeypatch, estados, instantes, *, mode=None, cfg=None):
     """Corre frames reales de sync con dobles que solo reemplazan I/O."""
     enviados: list[dict[int, tuple[float, float, float]]] = []
 
@@ -101,7 +101,7 @@ def ejecutar_frames(monkeypatch, estados, instantes, *, mode=None):
     monkeypatch.setattr(sync, "_status", lambda *args: None)
     monkeypatch.setattr(sync.time, "perf_counter", lambda: instantes[0])
 
-    cfg = Config()
+    cfg = cfg or Config()
     cfg.effects.ceiling_channel = 1
     assert sync.run_sync(cfg, duration=0.1, mode=mode) == 0
     return enviados
@@ -171,8 +171,8 @@ def test_composicion_invalida_avisa_antes_del_loop(monkeypatch, capsys):
 def test_el_guard_cenital_conserva_idle_al_volver_el_audio(monkeypatch):
     """El primer frame tras silencio parte del idle fisico, no de la nada.
 
-    Idle mide 0.07 y harmony quiere volver a 1.0. Conservar el ultimo RGB
-    deja el primer salto en 0.03; limpiar la memoria lo deja en 0.93.
+    Conservar el ultimo RGB, ya transformado por la salida, deja el primer
+    salto en 0.03. Limpiar la memoria deja sin cota el retorno del audio.
     """
     estados = (
         AudioState(silent=True, bands=np.array((0.9, 0.3, 0.1))),
@@ -186,10 +186,33 @@ def test_el_guard_cenital_conserva_idle_al_volver_el_audio(monkeypatch):
     assert brillo_retorno - brillo_idle <= 0.03 + 1e-12
 
 
+def test_composicion_invalida_con_controles_validos_alcanza_el_loop(monkeypatch):
+    """El aviso de una lista corta no puede indexar el canal cenital ausente."""
+    cfg = Config()
+    cfg.effects.channel_modes = ("combo",)
+    estados = (AudioState(silent=False, bands=np.array((0.9, 0.3, 0.1))),)
+
+    enviados = ejecutar_frames(monkeypatch, estados, (100.0, 101.0), cfg=cfg)
+
+    assert len(enviados) == 1
+    assert set(enviados[0]) == {0, 1}
+
+
+def test_idle_conserva_su_brillo_configurado_antes_del_recorte(monkeypatch):
+    """Rango y normalizacion solo dan forma a musica; idle sigue siendo tenue."""
+    estados = (AudioState(silent=True, bands=np.array((0.9, 0.3, 0.1))),)
+
+    enviados = ejecutar_frames(monkeypatch, estados, (100.0, 101.0))
+
+    assert max(enviados[0][0]) == 0.07
+    assert max(enviados[0][1]) == 0.07
+
+
 def test_mode_explicitamente_sobre_escribe_la_composicion_en_el_loop(monkeypatch):
-    """`--mode spectrum` envia spectrum con ganancia 1 a ambos canales."""
+    """`--mode spectrum` conserva el look aunque cada canal tenga su salida."""
     estados = (AudioState(silent=False, bands=np.array((0.9, 0.3, 0.1))),)
     enviados = ejecutar_frames(monkeypatch, estados, (100.0, 101.0), mode="spectrum")
 
     assert len(enviados) == 1
-    assert enviados[0][0] == enviados[0][1]
+    assert max(enviados[0][0]) > 0.7
+    assert max(enviados[0][1]) > 0.9

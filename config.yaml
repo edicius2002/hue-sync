@@ -136,12 +136,18 @@ effects:
   # el channel_id del bridge, o sea el ORDEN EN QUE ANADISTE LAS LUCES AL AREA,
   # no una posicion geometrica: usa `run.py identify` para saber cual es cual.
   channel_modes: [combo, harmony]
-  # Multiplicador de brillo 0.0..1.0 por canal. Fuera de ese rango se rechaza
-  # la composicion para no saturar RGB y cambiar el matiz. Hace falta porque la jerarquia no sale
-  # sola de los looks: medida sobre los pares, la razon techo/pared va de 0.40
-  # a 8.12 y con combo+harmony queda en 0.45, o sea el techo mas oscuro que el
-  # acento. Al reves de lo que se quiere.
-  channel_gain: [0.7, 1.0]
+  # Suelo y techo de brillo por canal. Combo tenia mediana 0.20: este rango
+  # levanta su suelo sin bajar el pico, cosa que una ganancia no podia hacer.
+  channel_range: [[0.25, 1.0], [0.45, 1.0]]
+  # Saturacion HSV: el techo a 0.85 llena la periferia sin ser agresivo.
+  channel_saturation: [1.0, 0.85]
+  # Offset circular de hue: conserva las diferencias entre acordes.
+  channel_hue_shift: [0.0, 0.08]
+  # Cuanto normalizar al pico adaptativo: pared cruda, techo a 60%.
+  channel_normalize: [0.0, 0.6]
+  # El suelo evita dividir por picos de silencio: ganancia inicial <= 1.67x.
+  channel_normalize_floor: 0.60
+  channel_normalize_release: 120.0
 
   # Cual es la luz cenital. Llena el campo visual incluida la periferia, que es
   # donde mas dispara la fotosensibilidad, asi que se le acota la pendiente de
