@@ -114,7 +114,7 @@ analysis:
   downbeat_offset_hold: 8           # compases antes de mover el "1"
 
 effects:
-  mode: combo              # combo | harmony | bars | beat_flash | spectrum | sustain | idle
+  mode: combo              # combo | harmony | bars | beat_flash | spectrum | sustain | idle | wash
 
   # El brillo sube durante esta fraccion del beat ANTES del golpe. Es lo que
   # convierte el efecto en algo que se anticipa al ritmo en vez de reaccionar,

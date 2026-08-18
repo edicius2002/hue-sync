@@ -58,7 +58,11 @@ py -3.11 -m venv .venv
 ```
 
 Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`,
-`sustain`, `idle`.
+`sustain`, `idle`, `wash`.
+
+`wash` conserva un color fijo (`idle_color`) y modula su brillo con la energia
+del audio; sirve para un techo que llena el cuarto, pero su pendiente depende
+del recorte cenital.
 
 ### Afinar sin editar ficheros
 
@@ -130,7 +134,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | harmony | bars | beat_flash | spectrum | sustain | idle
+           modes.py        combo | harmony | bars | beat_flash | spectrum | sustain | idle | wash
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico

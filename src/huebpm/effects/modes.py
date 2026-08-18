@@ -64,11 +64,16 @@ class WashEffect:
     pequeno. Reutilizar `idle_color` deja un unico color estable mientras la
     energia conserva el movimiento; es el intermedio entre `idle` plano y
     `spectrum`, que cambia de matiz. En render real a 50 fps tras el warmup,
-    Billie llega a p99 0.5864 y maximo 0.7360 por frame; Summer llega a
-    0.3061. Como el color es fijo, ``max(RGB) = nivel * max(idle_color)``:
-    transmite el salto de energia entero, mientras la mezcla de color de
-    `spectrum` amortigua su maximo RGB. Es el look mas abrupto y depende de
-    `limit_slope` en la salida, no de una suavidad propia.
+    Billie llega a p99 0.52 y maximo 0.65 por frame; Summer llega a 0.31.
+    Como el color es fijo, ``max(RGB) = nivel * max(idle_color)``: transmite
+    el salto de energia entero, mientras la mezcla de color de `spectrum`
+    amortigua su maximo RGB. Es el look mas abrupto y depende de `limit_slope`
+    en la salida, no de una suavidad propia.
+
+    En `summer.wav` se satura casi todo el tiempo (media de brillo crudo 0.925,
+    minimo 0.825, CV 0.036), donde degenera visualmente en un `idle` brillante.
+    Es una calibracion de `beat_floor`/energia, no una razon para cambiar el
+    color fijo.
     """
 
     name = "wash"
@@ -151,28 +156,6 @@ class HarmonyEffect:
         return fill(scale(color, brillo), ctx.channel_count)
 
 
-class HarmonyEnergyEffect:
-    """Color del acorde con brillo por energia, pensado para el techo.
-
-    Sigue los cambios de acorde sin convertirse en una lampara fija: usa el
-    mismo nivel que `spectrum`. Con tonalidad baja se mezcla hacia el color
-    espectral, igual que `harmony`; inventar un tono durante percusion o ruido
-    haria que el techo salte de color sin informacion armonica que respaldarlo.
-    En render real a 50 fps tras el warmup, Billie llega a p99 0.3837 y maximo
-    0.4714 por frame; Summer llega a 0.2244. Tambien depende de `limit_slope`
-    en la salida: el nivel sigue la envolvente de energia sin suavidad propia.
-    """
-
-    name = "harmony_energy"
-
-    def render(self, ctx: RenderContext) -> Channels:
-        color = blend(spectrum_color(ctx), harmony_color(ctx), harmony_mix(ctx))
-        bands = list(ctx.state.bands) + [0.0, 0.0, 0.0]
-        energy = max(bands[0], bands[1], bands[2])
-        level = ctx.cfg.beat_floor + (1.0 - ctx.cfg.beat_floor) * energy
-        return fill(scale(color, level), ctx.channel_count)
-
-
 class SustainEffect:
     """Destello de beat que se vuelve brillo continuo con material sostenido.
 
@@ -201,7 +184,7 @@ class CompositionEffect:
     """Compone un look y una ganancia por canal sin ser un look registrable.
 
     Un compositor dentro de ``EFFECTS`` podria componerse a si mismo y entrar
-    en recursion. Solo se aceptan sus siete looks reales; si la configuracion
+    en recursion. Solo se aceptan sus ocho looks reales; si la configuracion
     no describe el area entera se conserva el fallback para no dejar un canal
     mostrando su RGB viejo.
     """
@@ -253,7 +236,7 @@ EFFECTS = {
     e.name: e
     for e in (ComboEffect(), HarmonyEffect(), BarsEffect(),
               BeatFlashEffect(), SpectrumEffect(), SustainEffect(), IdleEffect(),
-              WashEffect(), HarmonyEnergyEffect())
+              WashEffect())
 }
 
 LOOK_MAX_STEPS = {
@@ -264,8 +247,7 @@ LOOK_MAX_STEPS = {
     "spectrum": 0.50,
     "sustain": 0.31,
     "idle": 0.00,
-    "wash": 0.7360,
-    "harmony_energy": 0.4714,
+    "wash": 0.65,
 }
 """Maximos medidos de brillo por frame a 50 fps sobre audio real.
 
