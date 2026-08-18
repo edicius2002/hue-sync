@@ -147,7 +147,6 @@ effects:
   channel_normalize: [0.0, 0.6]
   # El suelo evita dividir por picos de silencio: ganancia inicial <= 1.67x.
   channel_normalize_floor: 0.60
-  # Release lento: a 120 s C2 conserva el breakdown de summer.wav; a 12 s no.
   channel_normalize_release: 120.0
 
   # Cual es la luz cenital. Llena el campo visual incluida la periferia, que es

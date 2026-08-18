@@ -245,12 +245,13 @@ class EffectsConfig:
 
     """
     channel_gain: tuple[float, ...] = (0.7, 1.0)
-    """Compatibilidad temporal para `CompositionEffect`, sin efecto en sync.
+    """Compatibilidad temporal para `CompositionEffect` y YAML antiguo.
 
     La salida real usa `channel_range`, `channel_saturation`,
-    `channel_hue_shift` y `channel_normalize`. Se conserva solo porque el
-    compositor vive en otro modulo que todavia acepta este argumento; sync le
-    inyecta siempre 1.0 y no lee este valor.
+    `channel_hue_shift` y `channel_normalize`. Al cargar un YAML que aun tenga
+    `channel_gain`, `_apply` lo migra a rangos `0..ganancia`; si tambien hay un
+    `channel_range` nuevo, este tiene prioridad. Asi una configuracion vieja no
+    se acepta para despues ignorarla en silencio.
     """
 
     channel_range: tuple[tuple[float, float], ...] = ((0.25, 1.0), (0.45, 1.0))
@@ -481,6 +482,12 @@ def _apply(obj: Any, data: dict | None) -> Any:
         else:
             value = _a_tupla(value, getattr(obj, key, None))
         setattr(obj, key, value)
+        if key == "channel_gain" and "channel_range" not in data:
+            try:
+                if isinstance(value, tuple) and all(float(gain) >= 0.0 for gain in value):
+                    obj.channel_range = tuple((0.0, float(gain)) for gain in value)
+            except (TypeError, ValueError):
+                pass
     return obj
 
 

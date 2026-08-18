@@ -105,6 +105,14 @@ def test_colores_se_convierten_a_tuplas(tmp_path):
     assert color == (0.9, 0.2, 0.1)
 
 
+def test_channel_gain_viejo_se_migra_a_channel_range(tmp_path):
+    """El formato antiguo conserva su efecto al cargarlo con el pipeline nuevo."""
+    ruta = escribir(tmp_path, "effects:\n  channel_gain: [0.6, 1.0]\n")
+    efectos = load_config(ruta).effects
+    assert efectos.channel_gain == (0.6, 1.0)
+    assert efectos.channel_range == ((0.0, 0.6), (0.0, 1.0))
+
+
 def test_el_config_del_repo_carga():
     """El config.yaml versionado debe ser valido: si se anade un campo al
     dataclass y no al yaml (o al reves), esto lo detecta."""

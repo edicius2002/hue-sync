@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import sys
 import time
+from math import isfinite
+from numbers import Real
 
 from ..audio.capture import LoopbackCapture, resolve_device
 from ..config import Config, load_hue_credentials
@@ -50,6 +52,7 @@ def run_sync(
         print(exc)
         return 1
     idle_effect = IdleEffect()
+    controls_shape_valid = _output_controls_valid(None, cfg.effects)
 
     device = resolve_device(cfg.audio.device_index, cfg.audio.device_name)
     capture = LoopbackCapture(
@@ -88,7 +91,7 @@ def run_sync(
     # de salida la sustituye por las cuatro primitivas por canal.
     composition = CompositionEffect(effect, channel_modes, (1.0,) * channel_count)
     composition_valid = composition.is_valid(channel_count, cfg.effects)
-    controls_valid = _output_controls_valid(channel_count, cfg.effects)
+    controls_valid = controls_shape_valid and _output_controls_valid(channel_count, cfg.effects)
 
     comp = cfg.render.latency_compensation_ms / 1000.0
     print(f"Audio:  [{device.index}] {device.name} @ {device.samplerate} Hz")
@@ -194,21 +197,52 @@ def _limit_ceiling(
     )
 
 
-def _output_controls_valid(channel_count: int, cfg) -> bool:  # noqa: ANN001
-    """Verifica que las cuatro listas describen todos los canales reales."""
-    listas = (
-        cfg.channel_range,
-        cfg.channel_saturation,
-        cfg.channel_hue_shift,
-        cfg.channel_normalize,
-    )
-    if any(len(valores) != channel_count for valores in listas):
+def _output_controls_valid(channel_count: int | None, cfg) -> bool:  # noqa: ANN001
+    """Verifica formas y rangos sin desempaquetar datos de un YAML roto."""
+    try:
+        channel_range = cfg.channel_range
+        listas = (
+            channel_range,
+            cfg.channel_saturation,
+            cfg.channel_hue_shift,
+            cfg.channel_normalize,
+        )
+        if any(not isinstance(valores, (tuple, list)) for valores in listas):
+            return False
+        if channel_count is not None and any(
+            len(valores) != channel_count for valores in listas
+        ):
+            return False
+        for rango in channel_range:
+            if not isinstance(rango, (tuple, list)) or len(rango) != 2:
+                return False
+            minimo, maximo = rango
+            if not _unit_interval(minimo) or not _unit_interval(maximo) or minimo > maximo:
+                return False
+        if not all(_unit_interval(valor) for valores in listas[1:] for valor in valores):
+            return False
+        return _positive_finite(cfg.channel_normalize_floor) and _positive_finite(
+            cfg.channel_normalize_release
+        )
+    except (AttributeError, TypeError, ValueError, OverflowError):
         return False
+
+
+def _unit_interval(value) -> bool:  # noqa: ANN001
     return (
-        all(0.0 <= minimo <= maximo <= 1.0 for minimo, maximo in cfg.channel_range)
-        and all(0.0 <= valor <= 1.0 for valores in listas[1:] for valor in valores)
-        and cfg.channel_normalize_floor > 0.0
-        and cfg.channel_normalize_release > 0.0
+        isinstance(value, Real)
+        and not isinstance(value, bool)
+        and isfinite(float(value))
+        and 0.0 <= value <= 1.0
+    )
+
+
+def _positive_finite(value) -> bool:  # noqa: ANN001
+    return (
+        isinstance(value, Real)
+        and not isinstance(value, bool)
+        and isfinite(float(value))
+        and value > 0.0
     )
 
 

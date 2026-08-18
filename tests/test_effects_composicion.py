@@ -118,6 +118,26 @@ def test_configuracion_invalida_degrada_el_area_entera_al_mode(modes, gain):
     assert effect_modes.CompositionEffect(ComboEffect()).render(ctx) == ComboEffect().render(ctx)
 
 
+@pytest.mark.parametrize(
+    "channel_range",
+    (
+        [0.45, 1.0],
+        ((0.2,), (0.4, 1.0)),
+        ((0.2, 0.5, 1.0), (0.4, 1.0)),
+    ),
+)
+def test_controles_rechazan_formas_de_rango_invalidas_sin_lanzar(channel_range):
+    """Falla si un config.yaml viejo hace que la validacion desempaquete mal."""
+    cfg = config_composicion(channel_range=channel_range)
+    assert sync._output_controls_valid(2, cfg) is False
+
+
+def test_controles_rechazan_un_rango_invertido():
+    """Falla si el minimo de brillo queda por encima del maximo."""
+    cfg = config_composicion(channel_range=((1.0, 0.2), (0.4, 1.0)))
+    assert sync._output_controls_valid(2, cfg) is False
+
+
 def test_limit_slope_acota_brillo_y_conserva_el_matiz():
     """Falla si se recorta RGB por componente y desplaza el color cenital."""
     nuevo = {0: (0.1, 0.1, 0.1), 1: (0.8, 0.4, 0.2)}
@@ -249,7 +269,7 @@ def test_el_guard_cenital_acota_todos_los_looks(look):
 @pytest.mark.parametrize("normalizacion", (0.0, 0.5, 1.0))
 @pytest.mark.parametrize("look", LOOKS)
 def test_el_guard_cenital_sigue_ultimo_despues_de_normalizar(look, normalizacion):
-    """C3: rango, HSV y normalizacion no pueden reabrir un salto del techo."""
+    """Rango, HSV y normalizacion no pueden reabrir un salto del techo."""
     cfg = config_composicion(
         (look, look),
         (1.0, 1.0),
