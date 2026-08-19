@@ -225,10 +225,6 @@ class ChromaAnalyzer:
         return self._tonality
 
     @property
-    def centroid(self) -> tuple[float, float]:
-        return self.hue, self.tonality
-
-    @property
     def dominant(self) -> int:
         """Clase con mas energia ahora mismo, sin estabilizar."""
         return int(np.argmax(self._chroma))

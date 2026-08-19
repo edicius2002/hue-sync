@@ -141,12 +141,16 @@ class SustainEffect:
 
 
 class CompositionEffect:
-    """Compone un look y una ganancia por canal sin ser un look registrable.
+    """Compone un look por canal sin ser un look registrable.
 
     Un compositor dentro de ``EFFECTS`` podria componerse a si mismo y entrar
-    en recursion. Solo se aceptan sus ocho looks reales; si la configuracion
-    no describe el area entera se conserva el fallback para no dejar un canal
+    en recursion. Solo se aceptan sus looks reales; si la configuracion no
+    describe el area entera se conserva el fallback para no dejar un canal
     mostrando su RGB viejo.
+
+    El brillo por canal NO se decide aqui. Lo fija la capa de salida con
+    `channel_range`, que separa suelo y techo; una ganancia ademas seria un
+    segundo control de brillo compitiendo con aquel por el mismo pixel.
     """
 
     name = "composicion"
@@ -155,30 +159,24 @@ class CompositionEffect:
         self,
         fallback: Effect,
         channel_modes: tuple[str, ...] | None = None,
-        channel_gain: tuple[float, ...] | None = None,
     ) -> None:
         self.fallback = fallback
         self.channel_modes = channel_modes
-        self.channel_gain = channel_gain
 
-    def configuration(self, ctx: RenderContext) -> tuple[tuple[str, ...], tuple[float, ...]]:
-        modes = self.channel_modes if self.channel_modes is not None else ctx.cfg.channel_modes
-        gain = self.channel_gain if self.channel_gain is not None else ctx.cfg.channel_gain
-        return modes, gain
+    def configuration(self, cfg) -> tuple[str, ...]:  # noqa: ANN001
+        """Los looks que van a renderizarse, vengan del compositor o del config."""
+        return self.channel_modes if self.channel_modes is not None else cfg.channel_modes
 
     def is_valid(self, channel_count: int, cfg) -> bool:  # noqa: ANN001
-        modes = self.channel_modes if self.channel_modes is not None else cfg.channel_modes
-        gain = self.channel_gain if self.channel_gain is not None else cfg.channel_gain
+        modes = self.configuration(cfg)
         return (
             bool(modes)
             and len(modes) == channel_count
-            and len(gain) == len(modes)
             and all(name in EFFECTS for name in modes)
-            and all(0.0 <= value <= 1.0 for value in gain)
         )
 
     def render(self, ctx: RenderContext) -> Channels:
-        modes, gain = self.configuration(ctx)
+        modes = self.configuration(ctx.cfg)
         if not self.is_valid(ctx.channel_count, ctx.cfg):
             return self.fallback.render(ctx)
 
@@ -186,10 +184,7 @@ class CompositionEffect:
         for name in modes:
             if name not in colores:
                 colores[name] = EFFECTS[name].render(ctx)[0]
-        return {
-            channel: scale(colores[name], gain[channel])
-            for channel, name in enumerate(modes)
-        }
+        return {channel: colores[name] for channel, name in enumerate(modes)}
 
 
 EFFECTS = {

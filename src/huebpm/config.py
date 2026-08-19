@@ -245,13 +245,17 @@ class EffectsConfig:
 
     """
     channel_gain: tuple[float, ...] = (0.7, 1.0)
-    """Compatibilidad temporal para `CompositionEffect` y YAML antiguo.
+    """SOLO entrada de migracion. Nada lo lee para pintar.
 
     La salida real usa `channel_range`, `channel_saturation`,
-    `channel_hue_shift` y `channel_normalize`. Al cargar un YAML que aun tenga
-    `channel_gain`, `_apply` lo migra a rangos `0..ganancia`; si tambien hay un
-    `channel_range` nuevo, este tiene prioridad. Asi una configuracion vieja no
-    se acepta para despues ignorarla en silencio.
+    `channel_hue_shift` y `channel_normalize`. Poner `channel_gain` —por YAML o
+    por `HUEBPM_EFFECTS_CHANNEL_GAIN`— se traduce a rangos `0..ganancia`; si en
+    el mismo camino hay un `channel_range`, este tiene prioridad. Asi una
+    configuracion vieja no se acepta para despues ignorarla en silencio.
+
+    El campo sigue existiendo porque `_apply` rechaza toda clave desconocida:
+    borrarlo convertiria cualquier `config.yaml` viejo en un arranque roto, que
+    es peor que traducirlo. No lo uses en configuraciones nuevas.
     """
 
     channel_range: tuple[tuple[float, float], ...] = ((0.25, 1.0), (0.45, 1.0))
@@ -472,13 +476,25 @@ def _apply(obj: Any, data: dict | None) -> Any:
         else:
             value = _a_tupla(value, getattr(obj, key, None))
         setattr(obj, key, value)
-        if key == "channel_gain" and "channel_range" not in data:
-            try:
-                if isinstance(value, tuple) and all(float(gain) >= 0.0 for gain in value):
-                    obj.channel_range = tuple((0.0, float(gain)) for gain in value)
-            except (TypeError, ValueError):
-                pass
+    if "channel_gain" in data and "channel_range" not in data:
+        _migrar_channel_gain(obj, obj.channel_gain)
     return obj
+
+
+def _migrar_channel_gain(destino: Any, gain: Any) -> bool:
+    """Traduce la ganancia vieja a rangos `0..ganancia`. Dice si migro.
+
+    Vive en una funcion y no en cada camino porque YAML y entorno ya se
+    desincronizaron una vez con las tuplas: dos copias de esta regla volverian
+    a dar comportamiento distinto segun por donde entre el mismo valor.
+    """
+    try:
+        if isinstance(gain, tuple) and all(float(g) >= 0.0 for g in gain):
+            destino.channel_range = tuple((0.0, float(g)) for g in gain)
+            return True
+    except (TypeError, ValueError):
+        pass
+    return False
 
 
 def _a_tupla(valor: Any, referencia: Any) -> Any:
@@ -541,6 +557,7 @@ def apply_env_overrides(cfg: Config, entorno: dict[str, str] | None = None) -> l
     """
     entorno = os.environ if entorno is None else entorno
     aplicados: list[str] = []
+    vistos: set[tuple[str, str]] = set()
     secciones = {
         "AUDIO": cfg.audio,
         "ANALYSIS": cfg.analysis,
@@ -575,7 +592,22 @@ def apply_env_overrides(cfg: Config, entorno: dict[str, str] | None = None) -> l
         convertido = _coerce(valor, actual)
         convertido = _a_tupla(convertido, actual)
         setattr(destino, nombre, convertido)
+        vistos.add((seccion, nombre))
         aplicados.append(f"{seccion.lower()}.{nombre} = {valor}")
+
+    # La misma migracion que hace el YAML. Sin esto la variable se aceptaba, se
+    # anunciaba como aplicada y no movia un solo pixel: el fallo silencioso que
+    # esta funcion existe para evitar, y encima con el resultado dependiendo de
+    # por que camino entro el valor.
+    migrable = (
+        ("EFFECTS", "channel_gain") in vistos
+        and ("EFFECTS", "channel_range") not in vistos
+    )
+    if migrable and _migrar_channel_gain(cfg.effects, cfg.effects.channel_gain):
+        aplicados.append(
+            f"effects.channel_range = {cfg.effects.channel_range} "
+            "(migrado de channel_gain)"
+        )
     return sorted(aplicados)
 
 
