@@ -14,6 +14,7 @@ elegido a ojo, y este repo ya se comio dos veces el coste de descubrirlo tarde.
 | `taxonomia-looks.md` | Los tres ejes (color / brillo / enganche), solapes y huecos | vigente |
 | `senales-disponibles.md` | Que pide un diseno ambicioso, que existe, que cuesta y que es imposible | vigente |
 | `coordinacion-dos-focos.md` | Matriz de pares de looks: consistente, redundante o conflictivo | vigente |
+| `capa-de-salida.md` | Como se calcula el brillo por canal, y por que los numeros no se comportan como parecen | vigente |
 | `dos-luces.md` | Analisis de diseno previo a la capa de composicion | **parcialmente superado** |
 
 `dos-luces.md` propone `wall_channel`/`ceiling_channel` y un modo `dual` que ya
