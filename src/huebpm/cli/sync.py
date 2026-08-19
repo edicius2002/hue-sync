@@ -87,9 +87,7 @@ def run_sync(
         channel_count = session.channel_count or 1
 
     channel_modes = (mode,) * channel_count if mode else cfg.effects.channel_modes
-    # CompositionEffect conserva su ganancia por compatibilidad, pero la capa
-    # de salida la sustituye por las cuatro primitivas por canal.
-    composition = CompositionEffect(effect, channel_modes, (1.0,) * channel_count)
+    composition = CompositionEffect(effect, channel_modes)
     composition_valid = composition.is_valid(channel_count, cfg.effects)
     controls_valid = controls_shape_valid and _output_controls_valid(channel_count, cfg.effects)
 

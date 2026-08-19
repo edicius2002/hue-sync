@@ -113,6 +113,34 @@ def test_channel_gain_viejo_se_migra_a_channel_range(tmp_path):
     assert efectos.channel_range == ((0.0, 0.6), (0.0, 1.0))
 
 
+def test_channel_gain_por_entorno_migra_igual_que_por_yaml():
+    """El mismo valor no puede dar un resultado distinto segun por donde entre.
+
+    Antes la variable se aceptaba, se anunciaba como aplicada y no movia un
+    solo pixel, porque la migracion vivia solo en la rama del YAML.
+    """
+    from huebpm.config import Config, apply_env_overrides
+
+    cfg = Config()
+    aplicados = apply_env_overrides(cfg, {"HUEBPM_EFFECTS_CHANNEL_GAIN": "[0.6, 1.0]"})
+
+    assert cfg.effects.channel_range == ((0.0, 0.6), (0.0, 1.0))
+    assert any("migrado de channel_gain" in linea for linea in aplicados)
+
+
+def test_channel_range_por_entorno_gana_a_la_ganancia_vieja():
+    """Misma prioridad que en el YAML: lo nuevo manda sobre lo migrado."""
+    from huebpm.config import Config, apply_env_overrides
+
+    cfg = Config()
+    apply_env_overrides(cfg, {
+        "HUEBPM_EFFECTS_CHANNEL_GAIN": "[0.6, 1.0]",
+        "HUEBPM_EFFECTS_CHANNEL_RANGE": "[[0.25, 1.0], [0.45, 1.0]]",
+    })
+
+    assert cfg.effects.channel_range == ((0.25, 1.0), (0.45, 1.0))
+
+
 def test_el_config_del_repo_carga():
     """El config.yaml versionado debe ser valido: si se anade un campo al
     dataclass y no al yaml (o al reves), esto lo detecta."""

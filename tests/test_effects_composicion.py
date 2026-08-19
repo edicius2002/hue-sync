@@ -27,12 +27,10 @@ LOOKS = (
 
 def config_composicion(
     modes: tuple[str, ...] = ("combo", "harmony"),
-    gain: tuple[float, ...] = (1.0, 1.0),
     **cambios,
 ) -> EffectsConfig:
     cfg = EffectsConfig(**cambios)
     cfg.channel_modes = modes
-    cfg.channel_gain = gain
     return cfg
 
 
@@ -70,7 +68,7 @@ def test_el_compositor_asigna_combo_y_harmony_sin_alterar_el_look():
 @pytest.mark.parametrize("look", LOOKS)
 def test_cada_look_real_se_puede_asignar_a_un_canal(look):
     """Falla si un nombre registrado deja de poder componerse por canal."""
-    ctx = make_ctx(cfg=config_composicion((look,), (1.0,)), channel_count=1)
+    ctx = make_ctx(cfg=config_composicion((look,)), channel_count=1)
     assert effect_modes.CompositionEffect(ComboEffect()).render(ctx)[0] == get_effect(look).render(ctx)[0]
 
 
@@ -79,23 +77,12 @@ def test_el_registro_contiene_los_looks_y_no_el_compositor():
     assert tuple(EFFECTS) == LOOKS
 
 
-def test_la_ganancia_multiplica_el_brillo_de_su_canal():
-    """Falla si la ganancia se ignora o se aplica al canal equivocado."""
-    ctx = make_ctx(cfg=config_composicion(("spectrum", "spectrum"), (0.5, 1.0)))
-    canales = effect_modes.CompositionEffect(ComboEffect()).render(ctx)
-    esperado = get_effect("spectrum").render(ctx)[0]
-
-    assert canales[0] == pytest.approx(tuple(c * 0.5 for c in esperado))
-    assert canales[1] == esperado
-
-
 def test_mode_explicito_produce_el_mismo_look_antes_de_la_salida():
     """Falla si `--mode X` deja activo un look configurado antes del pipeline."""
     ctx = make_ctx()
     espejo = effect_modes.CompositionEffect(
         get_effect("spectrum"),
         channel_modes=("spectrum", "spectrum"),
-        channel_gain=(1.0, 1.0),
     ).render(ctx)
 
     esperado = get_effect("spectrum").render(ctx)
@@ -104,19 +91,17 @@ def test_mode_explicito_produce_el_mismo_look_antes_de_la_salida():
 
 
 @pytest.mark.parametrize(
-    "modes,gain",
+    "modes",
     [
-        (("combo",), (1.0,)),
-        (("combo", "harmony"), (1.0,)),
-        (("combo", "desconocido"), (1.0, 1.0)),
-        ((), ()),
-        (("composicion", "combo"), (1.0, 1.0)),
-        (("combo", "harmony"), (1.0, 1.01)),
+        ("combo",),
+        ("combo", "desconocido"),
+        (),
+        ("composicion", "combo"),
     ],
 )
-def test_configuracion_invalida_degrada_el_area_entera_al_mode(modes, gain):
+def test_configuracion_invalida_degrada_el_area_entera_al_mode(modes):
     """Falla si un canal queda sin RGB en vez de usar el fallback completo."""
-    ctx = make_ctx(cfg=config_composicion(modes, gain))
+    ctx = make_ctx(cfg=config_composicion(modes))
     assert effect_modes.CompositionEffect(ComboEffect()).render(ctx) == ComboEffect().render(ctx)
 
 
@@ -157,14 +142,13 @@ def test_limit_slope_no_recorta_el_primer_frame():
 
 
 def test_limit_slope_apaga_negro_desde_el_color_anterior():
-    """Un gain cero no puede apagar el techo de 0.50 a negro en un frame.
+    """Un look que cae a negro no puede apagar el techo de 0.50 en un frame.
 
     `max(RGB)` no permite reescalar negro. Se conserva el RGB anterior y se
     baja a 0.47: asi el apagado tarda los mismos frames seguros que la subida.
     """
     previo = (0.5, 0.25, 0.125)
-    ctx = make_ctx(cfg=config_composicion(("combo", "harmony"), (1.0, 0.0)))
-    nuevo = effect_modes.CompositionEffect(ComboEffect()).render(ctx)
+    nuevo = {0: (0.4, 0.2, 0.1), 1: (0.0, 0.0, 0.0)}
     limitado = base.limit_slope(previo, nuevo, 1, 0.03)
 
     assert nuevo[1] == (0.0, 0.0, 0.0)
@@ -254,7 +238,7 @@ def test_ceiling_clamp_false_deja_el_frame_sin_recorte():
 def test_el_guard_cenital_acota_todos_los_looks(look):
     """Falla si se desactiva la etapa que protege al techo a 50 fps."""
     cfg = config_composicion(
-        (look, look), (1.0, 1.0), ceiling_channel=1, ceiling_max_step=0.03
+        (look, look), ceiling_channel=1, ceiling_max_step=0.03
     )
     ctx = make_ctx(cfg=cfg)
     compositor = effect_modes.CompositionEffect(ComboEffect())
@@ -274,7 +258,6 @@ def test_el_guard_cenital_sigue_ultimo_despues_de_normalizar(look, normalizacion
     """Rango, HSV y normalizacion no pueden reabrir un salto del techo."""
     cfg = config_composicion(
         (look, look),
-        (1.0, 1.0),
         ceiling_channel=1,
         ceiling_max_step=0.03,
         channel_range=((0.25, 1.0), (0.45, 1.0)),
