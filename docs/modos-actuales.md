@@ -2,9 +2,15 @@
 
 Inventario para quien mira las luces, no para quien lee el codigo.
 
-Hay **ocho** nombres. Siete estan en `main` y se pueden usar hoy. El octavo
-(`dual`) existe en la rama `feat/n-canales`, funciona, **no esta en `main`**
-y **se esta renombrando a `roles`**: no te acostumbres al nombre `dual`.
+> **Parcialmente superado.** La descripcion de `spectrum` esta al dia. El
+> resto del documento es anterior a dos cambios: se retiraron `bars`,
+> `beat_flash` y `harmony_energy` por redundantes, y `dual`/`roles` nunca
+> llegaron a `main` —la configuracion real es `channel_modes`—. Falta ademas
+> `wash`. Las secciones de esos modos se conservan como registro de lo que
+> se midio, no como inventario de lo que hay.
+
+Hay **seis** looks en `main` y se pueden usar hoy: `combo`, `harmony`,
+`spectrum`, `sustain`, `wash` e `idle`.
 
 El modo por defecto es `combo`. Si no pasas `--mode` y no tocas
 `config.yaml`, eso es lo que corre.
@@ -35,7 +41,7 @@ lo que depende del compas, sobre todo `bars`.
 | `harmony` | Color del acorde, brillo casi fijo. No parpadea con la bateria. | `--mode harmony` | **En `main`.** Listo, pero en pop/house denso se cae a color de espectro. |
 | `bars` | Un color por compas, brillo al beat. Se ve el 4x4. | `--mode bars` | **En `main`.** Listo, pero **sin compas parece `combo`**. En summer.wav no engancha. |
 | `beat_flash` | Mismo naranja de reposo, destella en cada beat. | `--mode beat_flash` | **En `main`.** Listo. El mas simple, el menos musical. |
-| `spectrum` | Color y brillo segun el timbre. Sin ritmo. | `--mode spectrum` | **En `main`.** Listo. No sigue el beat. |
+| `spectrum` | Salta entre rojo, magenta y azul segun el espectro. Sin ritmo. | `--mode spectrum` | **En `main`.** Listo. No sigue el beat. |
 | `sustain` | Como `combo`, pero en pads/cuerdas deja de destellar y respira. | `--mode sustain` | **En `main`.** Recien calibrado con summer.wav y billie.wav. |
 | `idle` | Naranja tenue y fijo. Nunca apagado del todo. | `--mode idle`, o automatico en silencio | **En `main`.** Listo. No es un show, es "sigo vivo". |
 | `dual` | Pared = pulso (`combo`). Techo = acorde (`harmony`). | `--mode dual` **en `feat/n-canales`**, no en `main` | **En `feat/n-canales`, sin mergear.** El nombre **va a desaparecer**: se esta pasando a `roles`. |
@@ -232,22 +238,30 @@ Sirve para calibrar a ojo si el destello cae **en** el beat
 
 ---
 
-## `spectrum` — el equalizer
+## `spectrum` — los tres colores fuertes
 
-**Que ves.** El color sigue a graves/medios/agudos y el brillo sigue a
-la energia. **No hay beat.** Un pad estable se queda quieto; un drop se
-enciende. Las dos luces iguales.
+**Que ves.** Un color de tres —rojo, magenta o azul— que salta segun donde
+caiga el peso del espectro, con el brillo siguiendo a la energia. **No hay
+beat.** Un pad estable se queda quieto; un drop se enciende. Las dos luces
+iguales.
 
-**De que vive.** Solo bandas de frecuencia. No necesita pulso, armonia
-ni compas.
+No mezcla bandas: ELIGE. Promediar graves, medios y agudos por peso da marron
+mucho mas a menudo que rojo, porque tres colores sumados tiran al gris. Medido
+sobre los ocho WAV, el color cambia 1.47 veces por segundo de media.
+
+**De que vive.** Solo bandas de frecuencia, a traves del escalon que publica
+`SpectrumStep`. No necesita pulso, armonia ni compas.
 
 **Cuando decepciona.**
 
-* Si lo que quieres es ritmo: no lo hay. Un 4/4 claro se ve como un
-  lavado que sube y baja con la mezcla, no con el bombo.
-* Mastering muy comprimido: las bandas se mueven poco y parece una
-  lampara casi fija.
-* Silencio: igual que los demas, cae a `idle`.
+* Si lo que quieres es ritmo: no lo hay. Un 4/4 claro se ve como un color
+  que cambia con la mezcla, no con el bombo.
+* Material muy cargado de graves: se queda mucho rato en un solo color.
+  Medido, kobosil pasa el 74.6% del tiempo en rojo y baja a 0.41 cambios por
+  segundo, un color cada 2.5 s.
+* Mastering muy comprimido: las bandas se mueven poco y el escalon no salta.
+* Silencio: igual que los demas, cae a `idle`. El escalon se congela en vez de
+  reelegir, para que la luz no salte de color al volver el audio.
 
 **Como se prueba.**
 
@@ -258,9 +272,14 @@ cd /d D:\Work\research\hue
 
 **Estado.** En `main`.
 
-**Parametros que importan.** `bass_color`, `mid_color`, `treble_color`,
-`beat_floor` (aqui es el suelo de energia, no de beat),
-`saturation_boost`.
+**Parametros que importan.** `spectrum_palette` (los tres colores),
+`spectrum_step_edges`, `spectrum_step_tau`, `spectrum_step_margin` y
+`spectrum_step_dwell` (cuando cambia), y `beat_floor` (aqui es el suelo de
+energia, no de beat).
+
+`bass_color`, `mid_color`, `treble_color` y `saturation_boost` **ya no le
+afectan**: viven en `spectrum_color()`, que ahora solo usan `combo`,
+`harmony` y `sustain`. Para el brillo por canal, ver `capa-de-salida.md`.
 
 ---
 
