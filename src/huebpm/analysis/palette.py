@@ -15,12 +15,16 @@ Medido sobre los ocho WAV de referencia a 50 fps, tras el warmup:
 * El centroide ponderado por bandas NO recorre 0..1. El p10-p90 global es
   0.398..0.576, o sea que todo lo util cabe en 0.18. Umbrales repartidos sobre
   0..1 dejarian la luz clavada en el color central para siempre; los de
-  `spectrum_step_edges` son los quintiles medidos.
+  `spectrum_step_edges` son los terciles medidos.
 * Cuantizar sin mas da 12.1 cambios de color por segundo. Eso es un estrobo,
   no "colores fuertes". La histeresis sola tampoco basta: baja a 8.1.
 * Lo que de verdad lo arregla es suavizar y exigir permanencia. Con tau=0.15,
-  margen=0.002 y 0.5 s de permanencia quedan 1.32..1.86 cambios/s, o sea un
-  color cada 0.54..0.76 s, y los ocho temas siguen usando los cinco colores.
+  margen=0.002 y 0.5 s de permanencia el ritmo baja a poco mas de un color por
+  segundo, medido tema a tema en el propio codigo cableado.
+* Cuantos MENOS escalones haya, mas tiempo pasan encendidos los extremos. Con
+  cinco colores el primero y el ultimo se repartian el 21% del tiempo entre
+  los dos, y el 79% se lo comian los del medio. Con tres suben al 58%. Por eso
+  un color debil duele mas en el centro que en un extremo.
 
 El margen es pequeno a proposito. Los umbrales exteriores caen cerca de las
 colas de la distribucion, asi que un margen grande no estabiliza: mata los

@@ -160,12 +160,17 @@ class AnalysisConfig:
     """Acumular solo los maximos locales del espectro. En mezcla completa sube
     la separacion entre musica y ruido de 3.9x a 8.8x."""
 
-    spectrum_step_edges: tuple[float, ...] = (0.4315, 0.4744, 0.5061, 0.5521)
+    spectrum_step_edges: tuple[float, ...] = (0.4628, 0.5202)
     """Bordes entre escalones del centroide de bandas, para la paleta corta.
 
-    Son los quintiles medidos sobre los ocho WAV, no una reja repartida sobre
+    Son los terciles medidos sobre los ocho WAV, no una reja repartida sobre
     0..1: el centroide vive entre 0.398 y 0.576 (p10-p90 global) y una reja
     uniforme dejaria la luz clavada en el color central.
+
+    Cuantos menos escalones, mas tiempo pasan encendidos los extremos, y eso
+    importa mas de lo que parece: con cinco colores el rojo y el azul juntos
+    se llevaban el 21% del tiempo y el 79% se lo comian los tres del medio.
+    Con tres, los extremos suben al 58%.
 
     Que sean FIJOS y no por tema es deliberado. Adaptarlos al tema reparte el
     tiempo en cinco partes exactamente iguales y con eso borra el genero: con
@@ -259,15 +264,21 @@ class EffectsConfig:
 
     spectrum_palette: tuple[tuple[float, float, float], ...] = (
         (1.0, 0.00, 0.00),   # graves      rojo
-        (1.0, 0.45, 0.00),   #             ambar
         (1.0, 0.00, 0.85),   #             magenta
-        (0.0, 0.90, 1.00),   #             cian
-        (0.0, 0.05, 1.00),   # agudos      azul oscuro
+        (0.0, 0.05, 1.00),   # agudos      azul
     )
     """Los colores entre los que salta `spectrum`, de grave a agudo.
 
-    Un color por escalon de `spectrum_step_edges`: cinco colores, cuatro
-    bordes. Si no cuadran, el look recorta el indice en vez de fallar.
+    Un color por escalon de `spectrum_step_edges`: tres colores, dos bordes.
+    Si no cuadran, el look recorta el indice en vez de fallar.
+
+    Los tres son de los mas saturados que da una Hue. Se descartaron el ambar
+    y el cian: el ambar se lee casi como una lampara normal encendida y el
+    cian sale palido, y entre los dos ocupaban el 52% del tiempo. Un color
+    debil en el centro de la distribucion cuesta mas que en un extremo.
+
+    Ademas son VECINOS en el circulo de matiz (0deg, 320deg, 240deg), asi que
+    cada cambio recorre la rueda por el lado purpura en vez de saltar al azar.
 
     Los cinco tienen `max(RGB) = 1.0` a proposito. El brillo que sale del look
     es `max(RGB) = nivel`, asi que cambiar de color no mueve el brillo y el

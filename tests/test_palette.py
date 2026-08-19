@@ -90,9 +90,20 @@ def test_la_histeresis_ignora_un_cruce_que_no_pasa_del_margen():
     assert step.update((1.0 - fuera, 0.0, fuera), DT) == 1
 
 
-@pytest.mark.parametrize("indice,esperado", [(0, 0), (4, 4), (9, 4), (-3, 0)])
+ULTIMO = len(EffectsConfig().spectrum_palette) - 1
+
+
+@pytest.mark.parametrize(
+    "indice,esperado",
+    [(0, 0), (ULTIMO, ULTIMO), (ULTIMO + 5, ULTIMO), (-3, 0)],
+)
 def test_palette_color_recorta_el_indice(indice, esperado):
-    """Una paleta que no cuadre es un error de config, no una luz apagada."""
+    """Una paleta que no cuadre es un error de config, no una luz apagada.
+
+    Los indices salen de la longitud de la paleta y no de numeros a mano: si
+    manana cambia el numero de colores, este test tiene que seguir probando
+    los extremos reales y no unos que ya no existen.
+    """
     from huebpm.analysis.beatclock import BeatClock
     from huebpm.effects.base import RenderContext
     from huebpm.state import AudioState

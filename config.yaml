@@ -101,10 +101,10 @@ analysis:
 
   # Que color de la paleta corta le toca a `spectrum`. El centroide ponderado
   # por bandas (0 = graves, 1 = agudos) NO recorre 0..1: medido sobre los ocho
-  # WAV vive entre 0.398 y 0.576, asi que los bordes son los quintiles reales
+  # WAV vive entre 0.398 y 0.576, asi que los bordes son los terciles reales
   # y no una reja repartida sobre todo el rango. Fijos y no por tema a
   # proposito: adaptarlos borraria el genero, que es informacion.
-  spectrum_step_edges: [0.4315, 0.4744, 0.5061, 0.5521]
+  spectrum_step_edges: [0.4628, 0.5202]
   # Cuantizar sin mas da 12.1 cambios de color por segundo: un estrobo. El
   # suavizado y la permanencia lo bajan a 1.32..1.86, un color cada 0.54..0.76 s.
   spectrum_step_tau: 0.15      # subir de 0.35 mata los colores de los extremos
@@ -144,10 +144,8 @@ effects:
   # max(RGB) = 1.0: asi cambiar de color no mueve el brillo del look.
   spectrum_palette:
     - [1.0, 0.00, 0.00]    # rojo
-    - [1.0, 0.45, 0.00]    # ambar
     - [1.0, 0.00, 0.85]    # magenta
-    - [0.0, 0.90, 1.00]    # cian
-    - [0.0, 0.05, 1.00]    # azul oscuro
+    - [0.0, 0.05, 1.00]    # azul
 
   # Reposo cuando no suena nada: tenue y fijo, nunca apagado.
   idle_color: [1.0, 0.55, 0.2]
