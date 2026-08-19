@@ -323,6 +323,19 @@ el hue dan una paleta propia a cada foco, y la normalizacion es un escalar
 geometria ni un numero de luces. `--mode X` conserva X como look en todos los
 canales; los controles fisicos por canal siguen aplicandose.
 
+**Los cuatro arrancan neutros.** De fabrica no modifican nada: el rango es
+`0.0..1.0`, la saturacion `1.0`, el hue `0.0` y la normalizacion `0.0`, asi que
+lo que llega a la luz es exactamente lo que dio el look. Es deliberado. Estos
+controles describen un montaje fisico concreto —que luz llena la periferia,
+cual es un acento localizado— y eso solo lo sabe quien mira las luces; un
+default heredado de otro cuarto se lee como si el look fuera raro. Tambien
+`ceiling_channel` arranca en `null` por lo mismo.
+
+Sobre una paleta de colores puros como la de `spectrum` esto importa mas de lo
+que parece: con `channel_saturation: 0.85` y `channel_hue_shift: 0.08` el rojo
+puro sale `(1.00, 0.56, 0.15)`, o sea naranja. Los controles se disenaron para
+mezclas continuas, no para colores elegidos.
+
 El seguidor de pico de `channel_normalize` sube en un frame y baja en 120 s,
 con suelo 0.60. El suelo limita la ganancia inicial a 1.67x; el release evita
 que el seguidor nivele secciones hasta volverlas iguales. En summer.wav, la
@@ -334,8 +347,10 @@ dinamica relativa. El CV de summer pasa de 0.526 crudo a 0.219 con rango;
 la normalizacion recupera recorrido absoluto de 0.241 a 0.348, por encima de
 0.321 crudo.
 
-El canal configurado como `ceiling_channel` se recorta en la salida a
-`ceiling_max_step` de brillo por frame, preservando el matiz RGB. El orden es
+El canal que declares como `ceiling_channel` se recorta en la salida a
+`ceiling_max_step` de brillo por frame, preservando el matiz RGB. Arranca en
+`null`, o sea sin ninguna luz protegida: si tienes una lampara que llena la
+periferia, declararla es lo primero que deberias configurar. El orden es
 fijo: efecto, rango, saturacion, hue, normalizacion y recorte. Ningun look
 activo respeta 0.03 por si solo sobre audio real; el techo se protege aunque
 su look cambie y el recorte queda ultimo para que ninguna normalizacion vuelva

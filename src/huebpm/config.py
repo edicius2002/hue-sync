@@ -315,31 +315,42 @@ class EffectsConfig:
     es peor que traducirlo. No lo uses en configuraciones nuevas.
     """
 
-    channel_range: tuple[tuple[float, float], ...] = ((0.25, 1.0), (0.45, 1.0))
+    channel_range: tuple[tuple[float, float], ...] = ((0.0, 1.0), (0.0, 1.0))
     """Suelo y techo de brillo por canal, en el orden de `channel_modes`.
 
-    Combo tenia mediana 0.20 y nunca alcanzaba 1.0 sobre summer.wav. Un rango
-    separa ambos controles: 0.25..1.0 levanta la pared sin recortar el pico, y
-    0.45..1.0 deja el techo como ambiente dominante sin confundirlo con una
-    ganancia que solo multiplicaba todo por igual.
+    NEUTRO por defecto: `0.0..1.0` deja pasar el look sin tocarlo. Los cuatro
+    controles de esta seccion arrancan inertes a proposito, para que lo que se
+    ve sea el look y no un ajuste que nadie recuerda haber puesto. Cada montaje
+    fisico es distinto y estos valores solo los puede decidir quien mira.
+
+    Que hace cuando lo enciendes: remapea `max(RGB)` al rango sin mover el
+    matiz, asi que levanta el suelo sin recortar el pico, cosa que una simple
+    ganancia no puede. Medido, combo tenia mediana 0.20 sobre summer.wav y
+    nunca llegaba a 1.0; con `0.25..1.0` sube la pared sin perder el pico, y
+    `0.45..1.0` deja un canal como ambiente dominante. Tiene precio: levantar
+    el suelo baja el CV de summer de 0.526 a 0.219, un 58% de dinamica
+    relativa.
     """
-    channel_saturation: tuple[float, ...] = (1.0, 0.85)
+    channel_saturation: tuple[float, ...] = (1.0, 1.0)
     """Multiplicador de saturacion HSV por canal, 0..1.
 
-    El techo llena la periferia: 0.85 baja su agresividad sin perder el hue
-    que comunica la armonia. La pared queda a 1.0 como acento localizado.
+    NEUTRO por defecto. Bajarlo a 0.85 quita agresividad a un canal que llene
+    la periferia sin borrar el hue, pero sobre una paleta de colores puros
+    trabaja en contra: es lo que convierte el rojo de `spectrum` en naranja.
     """
-    channel_hue_shift: tuple[float, ...] = (0.0, 0.08)
+    channel_hue_shift: tuple[float, ...] = (0.0, 0.0)
     """Offset circular de hue por canal, 0..1.
 
-    Sumar el mismo offset conserva la distancia circular entre acordes: se
-    mueve la paleta del techo sin borrar que el acorde cambio.
+    NEUTRO por defecto. Sumar el mismo offset a un canal conserva la distancia
+    circular entre acordes, asi que le da paleta propia sin borrar que el
+    acorde cambio. Sobre `spectrum` desplaza la paleta entera: 0.08 son 28.8
+    grados, suficiente para que el rojo puro salga naranja.
     """
-    channel_normalize: tuple[float, ...] = (0.0, 0.6)
+    channel_normalize: tuple[float, ...] = (0.0, 0.0)
     """Cuanto acercar cada canal a su pico adaptativo, 0..1.
 
-    Cero conserva toda la dinamica; uno llena el rango disponible. El techo
-    usa 0.6 para ganar presencia sin comprimir por completo la estructura.
+    NEUTRO por defecto: cero conserva toda la dinamica. Uno llena el rango
+    disponible; 0.6 gana presencia sin comprimir del todo la estructura.
     """
     channel_normalize_floor: float = 0.60
     """Minimo del pico de referencia para normalizar.

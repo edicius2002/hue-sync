@@ -178,12 +178,18 @@ def test_channel_saturation_multiplica_la_saturacion_sin_mover_hue_ni_brillo():
 
 
 def test_channel_hue_shift_preserva_la_distancia_circular_entre_dos_colores():
-    """El offset no puede borrar que dos acordes distintos son distintos."""
-    cfg = EffectsConfig()
+    """El offset no puede borrar que dos acordes distintos son distintos.
+
+    El offset va explicito y no leido del config: lo que se fija aqui es el
+    contrato de la funcion, que tiene que valer para cualquier valor. Los
+    defaults arrancan neutros, asi que leerlos convertiria esto en una
+    comprobacion de que 0.0 no hace nada.
+    """
+    offset = 0.08
     primero = colorsys.hsv_to_rgb(0.95, 0.8, 0.7)
     segundo = colorsys.hsv_to_rgb(0.12, 0.8, 0.7)
-    desplazado_a = base.channel_hue_shift(primero, cfg.channel_hue_shift[1])
-    desplazado_b = base.channel_hue_shift(segundo, cfg.channel_hue_shift[1])
+    desplazado_a = base.channel_hue_shift(primero, offset)
+    desplazado_b = base.channel_hue_shift(segundo, offset)
 
     def distancia(a, b):  # noqa: ANN001
         recta = abs(a - b)
@@ -191,7 +197,7 @@ def test_channel_hue_shift_preserva_la_distancia_circular_entre_dos_colores():
 
     original = distancia(colorsys.rgb_to_hsv(*primero)[0], colorsys.rgb_to_hsv(*segundo)[0])
     movida = distancia(colorsys.rgb_to_hsv(*desplazado_a)[0], colorsys.rgb_to_hsv(*desplazado_b)[0])
-    assert colorsys.rgb_to_hsv(*desplazado_a)[0] == pytest.approx((0.95 + 0.08) % 1.0)
+    assert colorsys.rgb_to_hsv(*desplazado_a)[0] == pytest.approx((0.95 + offset) % 1.0)
     assert movida == pytest.approx(original)
 
 

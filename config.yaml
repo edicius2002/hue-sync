@@ -155,24 +155,38 @@ effects:
   # el channel_id del bridge, o sea el ORDEN EN QUE ANADISTE LAS LUCES AL AREA,
   # no una posicion geometrica: usa `run.py identify` para saber cual es cual.
   channel_modes: [combo, harmony]
-  # Suelo y techo de brillo por canal. Combo tenia mediana 0.20: este rango
-  # levanta su suelo sin bajar el pico, cosa que una ganancia no podia hacer.
-  channel_range: [[0.25, 1.0], [0.45, 1.0]]
-  # Saturacion HSV: el techo a 0.85 llena la periferia sin ser agresivo.
-  channel_saturation: [1.0, 0.85]
-  # Offset circular de hue: conserva las diferencias entre acordes.
-  channel_hue_shift: [0.0, 0.08]
-  # Cuanto normalizar al pico adaptativo: pared cruda, techo a 60%.
-  channel_normalize: [0.0, 0.6]
-  # El suelo evita dividir por picos de silencio: ganancia inicial <= 1.67x.
+  # Los cuatro controles de salida arrancan NEUTROS: lo que se ve es el look,
+  # sin ajustes que nadie recuerde haber puesto. Son de montaje fisico, y ese
+  # solo lo conoce quien mira las luces. Los valores comentados son los que se
+  # midieron cuando venian activados, por si los quieres de punto de partida.
+  #
+  # Suelo y techo de brillo por canal. Remapea max(RGB) sin mover el matiz, o
+  # sea que sube el suelo sin recortar el pico. Precio medido: el CV de summer
+  # cae de 0.526 a 0.219, un 58% de dinamica relativa.
+  channel_range: [[0.0, 1.0], [0.0, 1.0]]     # antes: [[0.25, 1.0], [0.45, 1.0]]
+  # Saturacion HSV. Bajarla quita agresividad a un canal que llene la
+  # periferia, pero sobre una paleta de colores puros la lava.
+  channel_saturation: [1.0, 1.0]              # antes: [1.0, 0.85]
+  # Offset circular de hue: da paleta propia a un canal conservando las
+  # diferencias entre acordes. 0.08 son 28.8 grados; sobre `spectrum` eso
+  # convierte el rojo puro en naranja.
+  channel_hue_shift: [0.0, 0.0]               # antes: [0.0, 0.08]
+  # Cuanto normalizar al pico adaptativo. Cero conserva toda la dinamica.
+  channel_normalize: [0.0, 0.0]               # antes: [0.0, 0.6]
+  # Solo actuan si channel_normalize deja de ser cero. El suelo evita dividir
+  # por picos de silencio: ganancia inicial <= 1.67x.
   channel_normalize_floor: 0.60
   channel_normalize_release: 120.0
 
-  # Cual es la luz cenital. Llena el campo visual incluida la periferia, que es
-  # donde mas dispara la fotosensibilidad, asi que se le acota la pendiente de
-  # brillo pase lo que pase. Depende de TU montaje fisico: aqui el canal 1 es
-  # el techo y el 0 la pared izquierda, verificado con `run.py identify`.
-  ceiling_channel: 1
+  # Cual es la luz cenital, o null si no declaras ninguna. Llena el campo
+  # visual incluida la periferia, que es donde mas dispara la fotosensibilidad,
+  # asi que cuando se declara se le acota la pendiente de brillo pase lo que
+  # pase. Depende de TU montaje fisico, asi que arranca en null: averigua cual
+  # es cual con `run.py identify` y ponlo tu.
+  #
+  # OJO al activarlo: sobre audio real ningun look respeta 0.03 por si solo,
+  # asi que con null no hay ninguna proteccion de pendiente en el techo.
+  ceiling_channel: null
   # Sobre audio real NINGUN look activo respeta esta cota por si solo: los
   # maximos por frame van de 0.31 (sustain) a 0.65 (wash), y hasta harmony
   # llega a 0.51. Solo idle cumple. Por eso se recorta siempre.
