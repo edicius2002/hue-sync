@@ -160,6 +160,40 @@ class AnalysisConfig:
     """Acumular solo los maximos locales del espectro. En mezcla completa sube
     la separacion entre musica y ruido de 3.9x a 8.8x."""
 
+    spectrum_step_edges: tuple[float, ...] = (0.4628, 0.5202)
+    """Bordes entre escalones del centroide de bandas, para la paleta corta.
+
+    Son los terciles medidos sobre los ocho WAV, no una reja repartida sobre
+    0..1: el centroide vive entre 0.398 y 0.576 (p10-p90 global) y una reja
+    uniforme dejaria la luz clavada en el color central.
+
+    Cuantos menos escalones, mas tiempo pasan encendidos los extremos, y eso
+    importa mas de lo que parece: con cinco colores el rojo y el azul juntos
+    se llevaban el 21% del tiempo y el 79% se lo comian los tres del medio.
+    Con tres, los extremos suben al 58%.
+
+    Que sean FIJOS y no por tema es deliberado. Adaptarlos al tema reparte el
+    tiempo en cinco partes exactamente iguales y con eso borra el genero: con
+    bordes fijos, kobosil (hard techno) pasa el 83% del tiempo en rojo y ambar
+    y calvin (house) el 57% en cian y azul. Esa diferencia es informacion.
+    """
+    spectrum_step_tau: float = 0.15
+    """Suavizado del centroide antes de cuantizar, en segundos.
+
+    Sin el, el escalon cambia 12.1 veces por segundo. Subirlo mas de 0.35
+    arrastra el centroide a su media, que cae en el escalon central, y los
+    colores de los extremos se mueren."""
+    spectrum_step_margin: float = 0.002
+    """Histeresis para salir del escalon actual.
+
+    Pequeno a proposito: los bordes exteriores estan cerca de las colas, asi
+    que a 0.004 ya hay temas que pierden un color entero."""
+    spectrum_step_dwell: float = 0.5
+    """Permanencia minima en un color, en segundos.
+
+    Es lo que de verdad convierte el estrobo en lectura: fija el techo del
+    ritmo de cambio en 2 por segundo. Medido queda en 1.32..1.86."""
+
     beats_per_bar: int = 4
     beats_per_phrase: int = 16
     downbeat_decay: float = 0.97
@@ -228,6 +262,29 @@ class EffectsConfig:
     mid_color: tuple[float, float, float] = (0.1, 1.0, 0.25)
     treble_color: tuple[float, float, float] = (0.25, 0.45, 1.0)
 
+    spectrum_palette: tuple[tuple[float, float, float], ...] = (
+        (1.0, 0.00, 0.00),   # graves      rojo
+        (1.0, 0.00, 0.85),   #             magenta
+        (0.0, 0.05, 1.00),   # agudos      azul
+    )
+    """Los colores entre los que salta `spectrum`, de grave a agudo.
+
+    Un color por escalon de `spectrum_step_edges`: tres colores, dos bordes.
+    Si no cuadran, el look recorta el indice en vez de fallar.
+
+    Los tres son de los mas saturados que da una Hue. Se descartaron el ambar
+    y el cian: el ambar se lee casi como una lampara normal encendida y el
+    cian sale palido, y entre los dos ocupaban el 52% del tiempo. Un color
+    debil en el centro de la distribucion cuesta mas que en un extremo.
+
+    Ademas son VECINOS en el circulo de matiz (0deg, 320deg, 240deg), asi que
+    cada cambio recorre la rueda por el lado purpura en vez de saltar al azar.
+
+    Los cinco tienen `max(RGB) = 1.0` a proposito. El brillo que sale del look
+    es `max(RGB) = nivel`, asi que cambiar de color no mueve el brillo y el
+    recorte cenital sigue midiendo lo mismo que antes de existir la paleta.
+    """
+
     idle_color: tuple[float, float, float] = (1.0, 0.55, 0.2)
     idle_brightness: float = 0.07
     """Estado en reposo cuando no suena nada: tenue y fijo, nunca apagado."""
@@ -258,31 +315,42 @@ class EffectsConfig:
     es peor que traducirlo. No lo uses en configuraciones nuevas.
     """
 
-    channel_range: tuple[tuple[float, float], ...] = ((0.25, 1.0), (0.45, 1.0))
+    channel_range: tuple[tuple[float, float], ...] = ((0.0, 1.0), (0.0, 1.0))
     """Suelo y techo de brillo por canal, en el orden de `channel_modes`.
 
-    Combo tenia mediana 0.20 y nunca alcanzaba 1.0 sobre summer.wav. Un rango
-    separa ambos controles: 0.25..1.0 levanta la pared sin recortar el pico, y
-    0.45..1.0 deja el techo como ambiente dominante sin confundirlo con una
-    ganancia que solo multiplicaba todo por igual.
+    NEUTRO por defecto: `0.0..1.0` deja pasar el look sin tocarlo. Los cuatro
+    controles de esta seccion arrancan inertes a proposito, para que lo que se
+    ve sea el look y no un ajuste que nadie recuerda haber puesto. Cada montaje
+    fisico es distinto y estos valores solo los puede decidir quien mira.
+
+    Que hace cuando lo enciendes: remapea `max(RGB)` al rango sin mover el
+    matiz, asi que levanta el suelo sin recortar el pico, cosa que una simple
+    ganancia no puede. Medido, combo tenia mediana 0.20 sobre summer.wav y
+    nunca llegaba a 1.0; con `0.25..1.0` sube la pared sin perder el pico, y
+    `0.45..1.0` deja un canal como ambiente dominante. Tiene precio: levantar
+    el suelo baja el CV de summer de 0.526 a 0.219, un 58% de dinamica
+    relativa.
     """
-    channel_saturation: tuple[float, ...] = (1.0, 0.85)
+    channel_saturation: tuple[float, ...] = (1.0, 1.0)
     """Multiplicador de saturacion HSV por canal, 0..1.
 
-    El techo llena la periferia: 0.85 baja su agresividad sin perder el hue
-    que comunica la armonia. La pared queda a 1.0 como acento localizado.
+    NEUTRO por defecto. Bajarlo a 0.85 quita agresividad a un canal que llene
+    la periferia sin borrar el hue, pero sobre una paleta de colores puros
+    trabaja en contra: es lo que convierte el rojo de `spectrum` en naranja.
     """
-    channel_hue_shift: tuple[float, ...] = (0.0, 0.08)
+    channel_hue_shift: tuple[float, ...] = (0.0, 0.0)
     """Offset circular de hue por canal, 0..1.
 
-    Sumar el mismo offset conserva la distancia circular entre acordes: se
-    mueve la paleta del techo sin borrar que el acorde cambio.
+    NEUTRO por defecto. Sumar el mismo offset a un canal conserva la distancia
+    circular entre acordes, asi que le da paleta propia sin borrar que el
+    acorde cambio. Sobre `spectrum` desplaza la paleta entera: 0.08 son 28.8
+    grados, suficiente para que el rojo puro salga naranja.
     """
-    channel_normalize: tuple[float, ...] = (0.0, 0.6)
+    channel_normalize: tuple[float, ...] = (0.0, 0.0)
     """Cuanto acercar cada canal a su pico adaptativo, 0..1.
 
-    Cero conserva toda la dinamica; uno llena el rango disponible. El techo
-    usa 0.6 para ganar presencia sin comprimir por completo la estructura.
+    NEUTRO por defecto: cero conserva toda la dinamica. Uno llena el rango
+    disponible; 0.6 gana presencia sin comprimir del todo la estructura.
     """
     channel_normalize_floor: float = 0.60
     """Minimo del pico de referencia para normalizar.

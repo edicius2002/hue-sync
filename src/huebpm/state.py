@@ -105,6 +105,14 @@ class AudioState:
     Arranca en 0.0 y nadie lo puebla todavia.
     """
 
+    spectrum_step: int = 0
+    """Que color de `spectrum_palette` toca ahora, ya estabilizado.
+
+    Lo decide `SpectrumStep` en el analisis y no el look, porque elegir exige
+    memoria —suavizado, histeresis y permanencia— y los efectos son funciones
+    puras de datos ya resueltos.
+    """
+
     rms: float = 0.0
     silent: bool = True
     frames_analyzed: int = 0

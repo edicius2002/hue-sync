@@ -41,6 +41,14 @@ from huebpm.state import AudioState
 PERIOD = 0.5
 ANCHOR = 100.0
 BANDAS = (0.9, 0.3, 0.1)
+ESCALON = 0
+"""El escalon de paleta que `SpectrumStep` daria con `BANDAS`.
+
+Se fija a mano en vez de heredar el default para que el dorado no dependa de
+que ambos coincidan por casualidad. Con (0.9, 0.3, 0.1) el centroide es
+(0.5*0.3 + 1.0*0.1) / 1.3 = 0.192, por debajo del primer borde (0.4315): un
+material tan cargado de graves tiene que dar el primer color de la paleta.
+"""
 TONALIDAD = 0.5
 FASES = (0.0, 0.25, 0.5, 0.75, 0.99)
 
@@ -94,6 +102,7 @@ def contexto(
             locked=True,
             tonality=tonality,
             sustain=sustain,
+            spectrum_step=ESCALON,
             **campos_nuevos,
         ),
         clock=clock,
@@ -124,12 +133,17 @@ GOLDEN: dict[str, dict[float, tuple[float, float, float]]] = {
         0.75: (0.891961538462, 0.416798076923, 0.293836538462),
         0.99: (0.891961538462, 0.416798076923, 0.293836538462),
     },
+    # Plano en fase, como antes: `spectrum` no lleva envolvente de beat. Lo que
+    # cambio es el color: ya no es la mezcla lavada (0.715, 0.310, 0.086) sino
+    # el rojo puro de la paleta escalado por el nivel. Con energia 0.9 el nivel
+    # es 0.12 + 0.88*0.9 = 0.912, y como todo color de la paleta tiene
+    # max(RGB) = 1.0, ese nivel es literalmente el max(RGB) de la salida.
     "spectrum": {
-        0.0: (0.714937846154, 0.309939692308, 0.085657846154),
-        0.25: (0.714937846154, 0.309939692308, 0.085657846154),
-        0.5: (0.714937846154, 0.309939692308, 0.085657846154),
-        0.75: (0.714937846154, 0.309939692308, 0.085657846154),
-        0.99: (0.714937846154, 0.309939692308, 0.085657846154),
+        0.0: (0.912, 0.0, 0.0),
+        0.25: (0.912, 0.0, 0.0),
+        0.5: (0.912, 0.0, 0.0),
+        0.75: (0.912, 0.0, 0.0),
+        0.99: (0.912, 0.0, 0.0),
     },
     "idle": {
         0.0: (0.07, 0.0385, 0.014),

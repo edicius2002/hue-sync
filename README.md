@@ -286,6 +286,33 @@ color dice que suena** (mezcla de graves/medios/agudos) y **el brillo dice
 cuando** (envolvente del beat). Juntarlas produce un estrobo; separarlas se lee
 como musica.
 
+`spectrum` no mezcla bandas: **elige** uno de tres colores fuertes —rojo,
+magenta y azul— segun donde caiga el peso del espectro. Promediar graves,
+medios y agudos por peso da marron mucho mas a menudo que rojo, porque tres
+colores sumados tiran al gris. Los tres son vecinos en el circulo de matiz
+(0deg, 320deg, 240deg), asi que cada cambio recorre la rueda por el lado
+purpura en vez de saltar al azar.
+
+Elegir exige decidir cuando cambiar, y eso son tres medidas. El centroide de
+bandas no recorre 0..1: sobre los ocho WAV vive entre 0.398 y 0.576 (p10-p90),
+asi que los bordes son los terciles reales y no una reja uniforme, que dejaria
+la luz clavada en el color central. Cuantizar sin mas da 12.1 cambios de color
+por segundo, o sea un estrobo; el suavizado (0.15 s), la histeresis (0.002) y
+la permanencia minima (0.5 s) lo dejan en 1.47 cambios/s de media.
+
+El numero de colores no es solo estetica: decide cuanto se ven los extremos.
+Con cinco escalones, el primero y el ultimo se repartian el 21% del tiempo y
+el 79% se lo comian los tres del medio, asi que un color debil en el centro
+—el ambar se lee casi como una lampara normal, el cian sale palido— ocupaba
+la pantalla mas que los fuertes. Con tres escalones los extremos suben al 58%.
+
+Los bordes son fijos y no se adaptan al tema a proposito: adaptarlos reparte el
+tiempo en partes iguales y con eso borra el genero. Con bordes fijos, kobosil
+(hard techno) pasa el 74.6% del tiempo en rojo y calvin (house) el 45.4% en
+azul. Esa diferencia es informacion, no un defecto; el precio es que un tema
+muy concentrado cambia poco: kobosil baja a 0.41 cambios/s, un color cada
+2.5 s, frente a 1.8 en billie.
+
 La capa de composicion asigna un look real por canal con `channel_modes` y
 aplica despues cuatro controles de salida en el mismo orden de insercion del
 bridge: `channel_range`, `channel_saturation`, `channel_hue_shift` y
@@ -295,6 +322,19 @@ el hue dan una paleta propia a cada foco, y la normalizacion es un escalar
 `combo` con rango 0.25..1.0 y el techo `harmony` con 0.45..1.0, sin asumir una
 geometria ni un numero de luces. `--mode X` conserva X como look en todos los
 canales; los controles fisicos por canal siguen aplicandose.
+
+**Los cuatro arrancan neutros.** De fabrica no modifican nada: el rango es
+`0.0..1.0`, la saturacion `1.0`, el hue `0.0` y la normalizacion `0.0`, asi que
+lo que llega a la luz es exactamente lo que dio el look. Es deliberado. Estos
+controles describen un montaje fisico concreto —que luz llena la periferia,
+cual es un acento localizado— y eso solo lo sabe quien mira las luces; un
+default heredado de otro cuarto se lee como si el look fuera raro. Tambien
+`ceiling_channel` arranca en `null` por lo mismo.
+
+Sobre una paleta de colores puros como la de `spectrum` esto importa mas de lo
+que parece: con `channel_saturation: 0.85` y `channel_hue_shift: 0.08` el rojo
+puro sale `(1.00, 0.56, 0.15)`, o sea naranja. Los controles se disenaron para
+mezclas continuas, no para colores elegidos.
 
 El seguidor de pico de `channel_normalize` sube en un frame y baja en 120 s,
 con suelo 0.60. El suelo limita la ganancia inicial a 1.67x; el release evita
@@ -307,8 +347,10 @@ dinamica relativa. El CV de summer pasa de 0.526 crudo a 0.219 con rango;
 la normalizacion recupera recorrido absoluto de 0.241 a 0.348, por encima de
 0.321 crudo.
 
-El canal configurado como `ceiling_channel` se recorta en la salida a
-`ceiling_max_step` de brillo por frame, preservando el matiz RGB. El orden es
+El canal que declares como `ceiling_channel` se recorta en la salida a
+`ceiling_max_step` de brillo por frame, preservando el matiz RGB. Arranca en
+`null`, o sea sin ninguna luz protegida: si tienes una lampara que llena la
+periferia, declararla es lo primero que deberias configurar. El orden es
 fijo: efecto, rango, saturacion, hue, normalizacion y recorte. Ningun look
 activo respeta 0.03 por si solo sobre audio real; el techo se protege aunque
 su look cambie y el recorte queda ultimo para que ninguna normalizacion vuelva

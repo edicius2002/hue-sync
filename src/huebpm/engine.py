@@ -22,6 +22,7 @@ from .analysis.chroma import ChromaAnalyzer
 from .analysis.downbeat import BarTracker
 from .analysis.odf import SpectralAnalyzer
 from .analysis.onsets import OnsetDetector, OnsetRate
+from .analysis.palette import SpectrumStep
 from .analysis.sustain import SustainDetector
 from .analysis.tempo import TempoTracker
 from .config import AnalysisConfig
@@ -104,6 +105,12 @@ class AnalysisEngine:
             attack=cfg.band_attack,
             release=cfg.band_release,
         )
+        self.spectrum_step = SpectrumStep(
+            edges=cfg.spectrum_step_edges,
+            tau=cfg.spectrum_step_tau,
+            margin=cfg.spectrum_step_margin,
+            dwell=cfg.spectrum_step_dwell,
+        )
         self.bars = BarTracker(
             beats_per_bar=cfg.beats_per_bar,
             beats_per_phrase=cfg.beats_per_phrase,
@@ -182,6 +189,7 @@ class AnalysisEngine:
         self.chroma.process(samples)
         band_levels = self.bands.update(frames[-1].bands, dt)
         sub_bass = float(self.sub_bass.update(np.array([frames[-1].sub_bass]), dt)[0])
+        spectrum_step = self.spectrum_step.update(band_levels, dt)
         self._accumulate_beat_energy(frames)
 
         stream_now = frames[-1].t
@@ -228,6 +236,7 @@ class AnalysisEngine:
                 sub_bass=sub_bass,
                 beat_strength=self._beat_strength,
                 onset_rate=self._onset_rate,
+                spectrum_step=spectrum_step,
                 rms=rms,
                 silent=silent,
                 frames_analyzed=self._frames_analyzed,
