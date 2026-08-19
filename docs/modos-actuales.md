@@ -2,9 +2,13 @@
 
 Inventario para quien mira las luces, no para quien lee el codigo.
 
-Hay **ocho** nombres. Siete estan en `main` y se pueden usar hoy. El octavo
-(`dual`) existe en la rama `feat/n-canales`, funciona, **no esta en `main`**
-y **se esta renombrando a `roles`**: no te acostumbres al nombre `dual`.
+Hay **seis** looks en `main` y se pueden usar hoy: `combo`, `harmony`,
+`spectrum`, `sustain`, `wash` e `idle`. Los seis se pueden asignar por canal
+con `channel_modes`; no hay ningun modo especial para "dos luces".
+
+`bars`, `beat_flash` y `harmony_energy` se retiraron por redundantes, y `dual`
+nunca llego a `main`. Lo que se midio para descartarlos vive en
+`modos-redundantes.md` y `coordinacion-dos-focos.md`.
 
 El modo por defecto es `combo`. Si no pasas `--mode` y no tocas
 `config.yaml`, eso es lo que corre.
@@ -22,8 +26,9 @@ regresa el modo que elegiste.
 
 En la consola, `LOCK` significa que hay pulso. `compas -` y `bconf` bajo
 significan que no hay "1" de compas. Sobre `summer.wav` el compas **no
-engancha** (confianza 0.046, umbral 0.14). Eso no tumba el ritmo; tumba
-lo que depende del compas, sobre todo `bars`.
+engancha** (confianza 0.046, umbral 0.14). Eso no tumba el ritmo: de los seis
+looks vivos, ninguno depende del compas para funcionar. Solo se pierde el
+acento extra del "1" en los que llevan envolvente de beat.
 
 ---
 
@@ -33,12 +38,10 @@ lo que depende del compas, sobre todo `bars`.
 |---|---|---|---|
 | `combo` | Color segun graves/medios/agudos, brillo al beat. Las dos luces iguales. | `run.py sync` (es el default) o `--mode combo` | **En `main`.** Listo. |
 | `harmony` | Color del acorde, brillo casi fijo. No parpadea con la bateria. | `--mode harmony` | **En `main`.** Listo, pero en pop/house denso se cae a color de espectro. |
-| `bars` | Un color por compas, brillo al beat. Se ve el 4x4. | `--mode bars` | **En `main`.** Listo, pero **sin compas parece `combo`**. En summer.wav no engancha. |
-| `beat_flash` | Mismo naranja de reposo, destella en cada beat. | `--mode beat_flash` | **En `main`.** Listo. El mas simple, el menos musical. |
-| `spectrum` | Color y brillo segun el timbre. Sin ritmo. | `--mode spectrum` | **En `main`.** Listo. No sigue el beat. |
-| `sustain` | Como `combo`, pero en pads/cuerdas deja de destellar y respira. | `--mode sustain` | **En `main`.** Recien calibrado con summer.wav y billie.wav. |
+| `spectrum` | Salta entre rojo, magenta y azul segun el espectro. Sin ritmo. | `--mode spectrum` | **En `main`.** Listo. No sigue el beat. |
+| `sustain` | Como `combo`, pero en pads/cuerdas deja de destellar y respira. | `--mode sustain` | **En `main`.** Calibrado con summer.wav y billie.wav. |
+| `wash` | Un solo color naranja que sube y baja con la energia. Sin ritmo. | `--mode wash` | **En `main`.** El mas abrupto: depende del recorte de salida, no de suavidad propia. |
 | `idle` | Naranja tenue y fijo. Nunca apagado del todo. | `--mode idle`, o automatico en silencio | **En `main`.** Listo. No es un show, es "sigo vivo". |
-| `dual` | Pared = pulso (`combo`). Techo = acorde (`harmony`). | `--mode dual` **en `feat/n-canales`**, no en `main` | **En `feat/n-canales`, sin mergear.** El nombre **va a desaparecer**: se esta pasando a `roles`. |
 
 ---
 
@@ -153,101 +156,30 @@ usa los colores de banda.
 
 ---
 
-## `bars` — el del 4x4
+## `spectrum` — los tres colores fuertes
 
-**Que ves.** Cuando el compas engancha, cada compas tiene un color de
-una paleta de cuatro (rojo, naranja, verde, azul) y el brillo sigue el
-beat. Cada cuatro compases la paleta vuelve a empezar. Se lee la
-estructura, no solo el metronomo.
+**Que ves.** Un color de tres —rojo, magenta o azul— que salta segun donde
+caiga el peso del espectro, con el brillo siguiendo a la energia. **No hay
+beat.** Un pad estable se queda quieto; un drop se enciende. Las dos luces
+iguales.
 
-**De que vive.** Compas y frase (`BarTracker`), mas pulso, bandas y
-onsets. **Si el compas no engancha, cae a color de espectro con brillo
-de beat**: o sea, se ve como `combo`. No rota paleta a lo loco porque
-eso se ve peor que no rotarla.
+No mezcla bandas: ELIGE. Promediar graves, medios y agudos por peso da marron
+mucho mas a menudo que rojo, porque tres colores sumados tiran al gris. Medido
+sobre los ocho WAV, el color cambia 1.47 veces por segundo de media.
 
-**Cuando decepciona.**
-
-* **summer.wav: el compas no engancha** (0.046 < 0.14). En ese tema
-  `bars` **es `combo` con otro nombre**. No es que este roto; no hay
-  "1" que detectar.
-* House four-on-the-floor, donde el bombo pesa igual en los cuatro
-  tiempos: misma historia.
-* Aunque enganche, a veces el "1" y el "3" empatan. El cambio de color
-  puede caer medio compas corrido. Sigue siendo ritmico; no es el 4x4
-  exacto de la partitura.
-* En consola: si `compas` es `-`, estas en el respaldo. Si sale `1/4?`
-  (con interrogacion), la rejilla esta pero el "1" es dudoso.
-
-**Como se prueba.**
-
-```bat
-cd /d D:\Work\research\hue
-.\.venv\Scripts\python.exe run.py sync --mode bars
-```
-
-Mira `bconf` y `compas` en la linea de estado. Si no suben, no estas
-viendo `bars` de verdad.
-
-**Estado.** En `main`. La feature extra (paleta por compas) es la mas
-fragil de las siete.
-
-**Parametros que importan.** `phrase_palette`, `downbeat_accent`, mas
-los de `combo` para el brillo. El umbral de enganche es
-`analysis.downbeat_min_confidence: 0.14`.
-
----
-
-## `beat_flash` — el metronomo
-
-**Que ves.** Un solo color (el naranja de reposo) que destella en cada
-beat. Un golpe fuera de tiempo lo blanquea un momento. No hay graves ni
-acordes: es un click visual.
-
-**De que vive.** Pulso y onsets. El acento del "1" solo si hay compas.
-El color es `idle_color`: si cambias el naranja de reposo, cambias
-tambien este modo.
+**De que vive.** Solo bandas de frecuencia, a traves del escalon que publica
+`SpectrumStep`. No necesita pulso, armonia ni compas.
 
 **Cuando decepciona.**
 
-* Sin pulso: se queda tenue y fijo, como un `idle` un poco mas brillante
-  (`beat_floor`).
-* En un tema rico se siente pobre: hay musica y la luz solo hace tic-tac.
-* Es el que mas se parece a un estrobo. No lo dejes con `beat_floor` a 0.
-
-**Como se prueba.**
-
-```bat
-cd /d D:\Work\research\hue
-.\.venv\Scripts\python.exe run.py sync --mode beat_flash
-```
-
-Sirve para calibrar a ojo si el destello cae **en** el beat
-(`latency_compensation_ms`, hoy 120 ms, aun no medido contra las luces).
-
-**Estado.** En `main`.
-
-**Parametros que importan.** `idle_color`, `beat_attack`, `beat_decay`,
-`beat_floor`, `onset_accent` / `onset_flash` / `onset_decay`,
-`downbeat_accent`.
-
----
-
-## `spectrum` — el equalizer
-
-**Que ves.** El color sigue a graves/medios/agudos y el brillo sigue a
-la energia. **No hay beat.** Un pad estable se queda quieto; un drop se
-enciende. Las dos luces iguales.
-
-**De que vive.** Solo bandas de frecuencia. No necesita pulso, armonia
-ni compas.
-
-**Cuando decepciona.**
-
-* Si lo que quieres es ritmo: no lo hay. Un 4/4 claro se ve como un
-  lavado que sube y baja con la mezcla, no con el bombo.
-* Mastering muy comprimido: las bandas se mueven poco y parece una
-  lampara casi fija.
-* Silencio: igual que los demas, cae a `idle`.
+* Si lo que quieres es ritmo: no lo hay. Un 4/4 claro se ve como un color
+  que cambia con la mezcla, no con el bombo.
+* Material muy cargado de graves: se queda mucho rato en un solo color.
+  Medido, kobosil pasa el 74.6% del tiempo en rojo y baja a 0.41 cambios por
+  segundo, un color cada 2.5 s.
+* Mastering muy comprimido: las bandas se mueven poco y el escalon no salta.
+* Silencio: igual que los demas, cae a `idle`. El escalon se congela en vez de
+  reelegir, para que la luz no salte de color al volver el audio.
 
 **Como se prueba.**
 
@@ -258,9 +190,14 @@ cd /d D:\Work\research\hue
 
 **Estado.** En `main`.
 
-**Parametros que importan.** `bass_color`, `mid_color`, `treble_color`,
-`beat_floor` (aqui es el suelo de energia, no de beat),
-`saturation_boost`.
+**Parametros que importan.** `spectrum_palette` (los tres colores),
+`spectrum_step_edges`, `spectrum_step_tau`, `spectrum_step_margin` y
+`spectrum_step_dwell` (cuando cambia), y `beat_floor` (aqui es el suelo de
+energia, no de beat).
+
+`bass_color`, `mid_color`, `treble_color` y `saturation_boost` **ya no le
+afectan**: viven en `spectrum_color()`, que ahora solo usan `combo`,
+`harmony` y `sustain`. Para el brillo por canal, ver `capa-de-salida.md`.
 
 ---
 
@@ -302,8 +239,7 @@ de `config.py`).** Ya no son los umbrales provisionales 0.35/0.65.
 * Cama de ruido, aplausos, hiss: la puerta tonal deberia dejarlo
   destellando. Si un pad producido es muy denso y poco "tonal", tambien
   puede no abrir.
-* summer.wav sin paleta de `bars`: aqui si deberia verse la diferencia,
-  en el tramo sostenido.
+* summer.wav: aqui si deberia verse la diferencia, en el tramo sostenido.
 
 **Como se prueba.**
 
@@ -323,6 +259,47 @@ usar; el riesgo conocido es la compresion y el solape tonal con ruido.
 `sustain_max_step` (0.03), mas los de beat y color de `combo`. No
 comparten umbral con `harmony`: alli la tonalidad pinta el color, aqui
 decide el brillo.
+
+---
+
+## `wash` — un solo color que respira
+
+**Que ves.** Un unico naranja —el mismo de `idle`— cuyo brillo sube y baja
+con la energia. **No hay ritmo ni cambio de color.** Es el intermedio entre
+`idle`, que es plano, y `spectrum`, que cambia de matiz.
+
+**De que vive.** Solo la energia de la banda mas fuerte. Ignora pulso,
+armonia y compas.
+
+**Por que un color fijo.** Dos matices distintos se suman a marron sobre las
+paredes de un cuarto pequeno. Reutilizar `idle_color` deja un color estable
+mientras el movimiento sigue estando en el brillo.
+
+**Es el look mas abrupto de los seis.** Como el color es fijo,
+`max(RGB) = nivel`, asi que transmite el salto de energia entero sin
+amortiguarlo. Medido a 50 fps tras el warmup, billie llega a 0.65 de salto por
+frame y summer a 0.31. No tiene suavidad propia: depende del recorte de la
+capa de salida. Si lo pones en una luz que te llene la periferia visual,
+declarala como `ceiling_channel`.
+
+**Cuando decepciona.**
+
+* Material muy comprimido: en summer.wav se satura casi todo el tiempo
+  (brillo medio 0.925, minimo 0.825, CV 0.036) y degenera visualmente en un
+  `idle` brillante. Es cuestion de calibrar `beat_floor`, no del color fijo.
+* Si esperas ver "que" suena: no lo dice. Solo dice cuanto.
+
+**Como se prueba.**
+
+```bat
+cd /d D:\Workesearch\hue
+.\.venv\Scripts\python.exe run.py sync --mode wash
+```
+
+**Estado.** En `main`.
+
+**Parametros que importan.** `idle_color` (el color), `beat_floor` (el suelo
+de energia). Comparte los dos con `idle`, asi que cambiarlos mueve ambos.
 
 ---
 
@@ -349,58 +326,7 @@ segundos.
 **Estado.** En `main`.
 
 **Parametros que importan.** `idle_color`, `idle_brightness` (0.07).
-Ojo: `idle_color` tambien es el color de `beat_flash`.
-
----
-
-## `dual` — dos luces, dos oficios (nombre en via de extincion)
-
-**Que ves.** Con exactamente dos luces bien asignadas: la de la **pared
-izquierda** destella con el beat y el timbre (`combo`); la del **techo**
-se queda en el color del acorde, sin parpadeo (`harmony`). En un cuarto
-pequeno eso se lee como "el golpe al lado, el ambiente arriba".
-
-Si el area no tiene dos canales, o si los IDs de pared/techo no son el
-par `{0, 1}`, **todo se pinta como `combo`** (las dos luces iguales) y
-`sync` avisa en consola.
-
-**De que vive.** Lo mismo que `combo` en la pared y que `harmony` en el
-techo. El techo hereda el fallo de `harmony` en mezcla densa (color de
-espectro, brillo lleno). El acento de compas, solo en la pared, y solo
-si el compas engancha. **No depende del compas para existir.**
-
-**Cuando decepciona.**
-
-* **No esta en `main`.** Desde `D:\Work\research\hue` (copia de `main`),
-  `--mode dual` responde `Modo desconocido`.
-* Los numeros `wall_channel` / `ceiling_channel` son el **orden en que
-  anadiste las luces al area**, no "izquierda" ni "arriba". Si los
-  tienes al reves, el techo destella y la pared se queda en color
-  quieto: se ve mal y cansa. Identifica cada luz a ojo antes de
-  asignarlos.
-* Una sola luz, o tres: cae a `combo` en todas. No reparte roles.
-* En pop/house el techo no va a "seguir el acorde"; va a lavar en
-  espectro. La pared si seguira el beat.
-
-**Como se prueba.** No desde `main`. Desde esta rama (`feat/n-canales`),
-con el Python del entorno de siempre:
-
-```bat
-cd /d D:\Work\research\hue\.ccb\workspaces\worker3
-D:\Work\research\hue\.venv\Scripts\python.exe run.py sync --mode dual
-```
-
-Si `wall_channel` y `ceiling_channel` estan cruzados, inviertelos en
-`config.yaml` y vuelve a lanzar. No hay deteccion geometrica.
-
-**Estado.** En `feat/n-canales`, **sin mergear y sin PR**. Existe y
-tiene tests. **El nombre `dual` se esta sustituyendo por `roles`**
-(lista de roles para N luces, no solo el par pared/techo). No memorices
-`dual` ni lo dejes escrito como el modo de cada dia: va a dejar de
-existir.
-
-**Parametros que importan.** `wall_channel` (0), `ceiling_channel` (1),
-mas todo lo de `combo` y `harmony`.
+Ojo: `idle_color` tambien es el color de `wash`.
 
 ---
 
@@ -411,9 +337,12 @@ aparte del BPM. Umbral de entrada: 0.14. En summer.wav: 0.046.
 
 | Modo | Que pierde si el compas no engancha |
 |---|---|
-| `bars` | **Lo que lo distingue.** Se ve como `combo`. |
-| `combo`, `beat_flash`, `sustain`, pared de `dual` | Solo el acento extra del "1". El beat sigue. |
-| `harmony`, `spectrum`, `idle`, techo de `dual` | Nada. No lo usan. |
+| `combo`, `sustain` | Solo el acento extra del "1". El beat sigue. |
+| `harmony` | Solo el acento del "1", si le subiste `harmony_beat_depth`. |
+| `spectrum`, `wash`, `idle` | Nada. No lo usan. |
+
+Ningun look vivo se queda sin identidad por falta de compas. Eso era justo lo
+que hundia a `bars`, y parte de por que se retiro.
 
 ---
 
@@ -421,14 +350,23 @@ aparte del BPM. Umbral de entrada: 0.14. En summer.wav: 0.046.
 
 Pared izquierda + techo, cuarto pequeno.
 
-**Hoy, desde `main`:** `combo`. Es el que ya tienes, las dos luces van a
+**Con un solo look en las dos luces:** `combo`. Es el default, las dos van a
 la par, y en este cuarto un solo color llena el volumen sin pelearse.
-`harmony` a solas deja el techo y la pared sin pulso; `bars` en
-summer.wav no te va a mostrar el 4x4; `beat_flash` se queda corto;
-`sustain` solo se nota en el tramo de pad.
+`harmony` a solas deja ambas sin pulso; `sustain` solo se nota en el tramo de
+pad; `wash` degenera en un `idle` brillante sobre material comprimido.
 
-**En cuanto quieras el contraste lateral/cenital:** el efecto que
-encaja es el de `dual` (pared = pulso, techo = acorde). Pero **no esta
-en `main`** y **el nombre se muere**. Cuando aterrice como `roles`, ese
-es el primero que yo pondria en este cuarto. Hasta entonces, no inviertas
-habito en `--mode dual`.
+**Para el contraste lateral/cenital**, que es lo que de verdad luce con dos
+luces, ya no hace falta un modo aparte: se asigna un look a cada canal.
+
+```yaml
+channel_modes: [combo, spectrum]
+```
+
+Pared con `combo`, que pulsa al beat; techo con `spectrum`, que aguanta un
+color fuerte y estable de fondo. El orden es el `channel_id` del bridge, o sea
+el ORDEN EN QUE ANADISTE LAS LUCES AL AREA: averigua cual es cual con
+`run.py identify` antes de asignar.
+
+El brillo de cada canal se ajusta aparte, en la capa de salida. Como hacerlo
+—y por que `channel_range` no se comporta como una ganancia— esta en
+`capa-de-salida.md`.
