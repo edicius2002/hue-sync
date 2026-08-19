@@ -16,6 +16,7 @@ from .base import (
     harmony_color,
     harmony_mix,
     onset_accent,
+    palette_color,
     scale,
     spectrum_color,
     sustain_mix,
@@ -34,7 +35,17 @@ class IdleEffect:
 
 
 class SpectrumEffect:
-    """Color por contenido espectral, brillo por energia. Sin ritmo."""
+    """Un color fuerte de una paleta corta, elegido por el espectro.
+
+    No mezcla: ELIGE. Promediar graves, medios y agudos por peso da marron
+    mucho mas a menudo que rojo, porque tres colores sumados tiran al gris.
+    Saltar entre colores puros conserva la relacion "el color dice que suena"
+    y ademas sobrevive a que las luces Hue laven los tonos mezclados.
+
+    Quien elige es `SpectrumStep`, en el analisis: la decision necesita
+    memoria y este look sigue siendo una funcion pura del estado publicado.
+    El brillo no se toca, sigue siendo la energia de la banda mas fuerte.
+    """
 
     name = "spectrum"
 
@@ -42,7 +53,7 @@ class SpectrumEffect:
         bands = list(ctx.state.bands) + [0.0, 0.0, 0.0]
         energy = max(bands[0], bands[1], bands[2])
         level = ctx.cfg.beat_floor + (1.0 - ctx.cfg.beat_floor) * energy
-        return fill(scale(spectrum_color(ctx), level), ctx.channel_count)
+        return fill(scale(palette_color(ctx), level), ctx.channel_count)
 
 
 class WashEffect:

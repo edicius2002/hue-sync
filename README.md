@@ -286,6 +286,24 @@ color dice que suena** (mezcla de graves/medios/agudos) y **el brillo dice
 cuando** (envolvente del beat). Juntarlas produce un estrobo; separarlas se lee
 como musica.
 
+`spectrum` no mezcla bandas: **elige** un color de una paleta corta de cinco
+—rojo, ambar, magenta, cian y azul oscuro— segun donde caiga el peso del
+espectro. Promediar graves, medios y agudos por peso da marron mucho mas a
+menudo que rojo, porque tres colores sumados tiran al gris.
+
+Elegir exige decidir cuando cambiar, y eso son tres medidas. El centroide de
+bandas no recorre 0..1: sobre los ocho WAV vive entre 0.398 y 0.576 (p10-p90),
+asi que los bordes son los quintiles reales y no una reja uniforme, que dejaria
+la luz clavada en el color central. Cuantizar sin mas da 12.1 cambios de color
+por segundo, o sea un estrobo; el suavizado (0.15 s), la histeresis (0.002) y
+la permanencia minima (0.5 s) lo dejan en 1.36..1.86 cambios/s, un color cada
+0.54..0.73 s.
+
+Los bordes son fijos y no se adaptan al tema a proposito: adaptarlos reparte el
+tiempo en cinco partes iguales y con eso borra el genero. Con bordes fijos,
+kobosil (hard techno) pasa el 84% del tiempo en rojo y ambar, y calvin (house)
+el 58% en cian y azul. Esa diferencia es informacion, no un defecto.
+
 La capa de composicion asigna un look real por canal con `channel_modes` y
 aplica despues cuatro controles de salida en el mismo orden de insercion del
 bridge: `channel_range`, `channel_saturation`, `channel_hue_shift` y

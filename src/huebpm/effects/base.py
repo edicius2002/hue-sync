@@ -183,6 +183,20 @@ def spectrum_color(ctx: RenderContext) -> Color:
     return saturate((r, g, b), cfg.saturation_boost)
 
 
+def palette_color(ctx: RenderContext) -> Color:
+    """El color de la paleta que toca ahora, sin mezclar nada.
+
+    Recorta el indice en vez de fallar: una paleta que no cuadre con los
+    bordes es un error de configuracion, no un motivo para dejar la luz sin
+    color. Si la paleta esta vacia se cae al color de reposo.
+    """
+    paleta = ctx.cfg.spectrum_palette
+    if not paleta:
+        return ctx.cfg.idle_color
+    indice = min(max(ctx.state.spectrum_step, 0), len(paleta) - 1)
+    return paleta[indice]
+
+
 def saturate(color: Color, boost: float) -> Color:
     """Aleja el color del gris. Las luces Hue lavan los tonos mezclados."""
     if boost <= 1.0:

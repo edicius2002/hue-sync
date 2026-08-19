@@ -160,6 +160,35 @@ class AnalysisConfig:
     """Acumular solo los maximos locales del espectro. En mezcla completa sube
     la separacion entre musica y ruido de 3.9x a 8.8x."""
 
+    spectrum_step_edges: tuple[float, ...] = (0.4315, 0.4744, 0.5061, 0.5521)
+    """Bordes entre escalones del centroide de bandas, para la paleta corta.
+
+    Son los quintiles medidos sobre los ocho WAV, no una reja repartida sobre
+    0..1: el centroide vive entre 0.398 y 0.576 (p10-p90 global) y una reja
+    uniforme dejaria la luz clavada en el color central.
+
+    Que sean FIJOS y no por tema es deliberado. Adaptarlos al tema reparte el
+    tiempo en cinco partes exactamente iguales y con eso borra el genero: con
+    bordes fijos, kobosil (hard techno) pasa el 83% del tiempo en rojo y ambar
+    y calvin (house) el 57% en cian y azul. Esa diferencia es informacion.
+    """
+    spectrum_step_tau: float = 0.15
+    """Suavizado del centroide antes de cuantizar, en segundos.
+
+    Sin el, el escalon cambia 12.1 veces por segundo. Subirlo mas de 0.35
+    arrastra el centroide a su media, que cae en el escalon central, y los
+    colores de los extremos se mueren."""
+    spectrum_step_margin: float = 0.002
+    """Histeresis para salir del escalon actual.
+
+    Pequeno a proposito: los bordes exteriores estan cerca de las colas, asi
+    que a 0.004 ya hay temas que pierden un color entero."""
+    spectrum_step_dwell: float = 0.5
+    """Permanencia minima en un color, en segundos.
+
+    Es lo que de verdad convierte el estrobo en lectura: fija el techo del
+    ritmo de cambio en 2 por segundo. Medido queda en 1.32..1.86."""
+
     beats_per_bar: int = 4
     beats_per_phrase: int = 16
     downbeat_decay: float = 0.97
@@ -227,6 +256,23 @@ class EffectsConfig:
     bass_color: tuple[float, float, float] = (1.0, 0.12, 0.0)
     mid_color: tuple[float, float, float] = (0.1, 1.0, 0.25)
     treble_color: tuple[float, float, float] = (0.25, 0.45, 1.0)
+
+    spectrum_palette: tuple[tuple[float, float, float], ...] = (
+        (1.0, 0.00, 0.00),   # graves      rojo
+        (1.0, 0.45, 0.00),   #             ambar
+        (1.0, 0.00, 0.85),   #             magenta
+        (0.0, 0.90, 1.00),   #             cian
+        (0.0, 0.05, 1.00),   # agudos      azul oscuro
+    )
+    """Los colores entre los que salta `spectrum`, de grave a agudo.
+
+    Un color por escalon de `spectrum_step_edges`: cinco colores, cuatro
+    bordes. Si no cuadran, el look recorta el indice en vez de fallar.
+
+    Los cinco tienen `max(RGB) = 1.0` a proposito. El brillo que sale del look
+    es `max(RGB) = nivel`, asi que cambiar de color no mueve el brillo y el
+    recorte cenital sigue midiendo lo mismo que antes de existir la paleta.
+    """
 
     idle_color: tuple[float, float, float] = (1.0, 0.55, 0.2)
     idle_brightness: float = 0.07
