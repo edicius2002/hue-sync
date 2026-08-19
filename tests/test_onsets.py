@@ -181,16 +181,23 @@ def test_se_puede_desactivar():
 def test_el_acento_no_saca_el_color_de_rango():
     from huebpm.effects.modes import get_effect
 
-    for modo in ("combo", "beat_flash"):
+    for modo in ("combo", "wash"):
         for c in get_effect(modo).render(contexto(0.0))[0]:
             assert 0.0 <= c <= 1.0
 
 
-@pytest.mark.parametrize("modo", ["combo", "beat_flash", "bars"])
+@pytest.mark.parametrize("modo", ["combo"])
 def test_todos_los_modos_ritmicos_reaccionan_al_onset(modo):
     """Regresion: `combo`, que es el modo por defecto, se quedo sin el codigo
     de onsets porque una sustitucion de texto no encajo y fallo en silencio. El
-    PR salio con la feature invisible en el unico modo que la gente usa."""
+    PR salio con la feature invisible en el unico modo que la gente usa.
+
+    La lista era `combo`, `beat_flash` y `bars`. Al retirar esos dos por
+    redundantes, `combo` quedo como UNICO consumidor de onsets: medido, los
+    otros cinco looks dan distancia 0.0000 al apagar `onset_accent` y
+    `onset_flash`. O sea que `OnsetDetector` y sus tres parametros de config
+    alimentan hoy un solo look, y esta prueba es la unica que lo defiende.
+    Se deja parametrizada para que anadir un consumidor sea una linea."""
     from huebpm.effects.modes import get_effect
 
     efecto = get_effect(modo)

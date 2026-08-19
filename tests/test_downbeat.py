@@ -14,7 +14,6 @@ import pytest
 from huebpm.analysis.downbeat import BarTracker
 from huebpm.config import AnalysisConfig, EffectsConfig
 from huebpm.effects.base import RenderContext, beat_envelope
-from huebpm.effects.modes import get_effect
 from huebpm.engine import AnalysisEngine
 from huebpm.state import AudioState
 from huebpm.testing.synth import click_track
@@ -264,23 +263,3 @@ def test_el_acento_es_configurable():
         beat_in_bar=1, bar_locked=True,
     )
     assert beat_envelope(sin_acento) > beat_envelope(ctx)
-
-
-def test_el_modo_bars_cambia_de_color_por_compas():
-    efecto = get_effect("bars")
-    colores = [efecto.render(contexto(0, fase=0.0))[0]]
-    for compas in range(1, 4):
-        ctx = contexto(0)
-        ctx = RenderContext(
-            now=ctx.now, state=ctx.state, clock=ctx.clock, channel_count=1,
-            cfg=ctx.cfg, phrase_phase=compas / 4.0, beat_in_bar=0, bar_locked=True,
-        )
-        colores.append(efecto.render(ctx)[0])
-    assert len({tuple(c) for c in colores}) == 4, "un color distinto por compas"
-
-
-def test_el_modo_bars_degrada_sin_enganche_de_compas():
-    efecto = get_effect("bars")
-    ctx = contexto(0, bar_locked=False)
-    color = efecto.render(ctx)[0]
-    assert all(0.0 <= c <= 1.0 for c in color)

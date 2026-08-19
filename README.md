@@ -54,11 +54,20 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe run.py sync
 
 # Igual pero sin bridge, para ver el efecto en consola.
-.\.venv\Scripts\python.exe run.py sync --dry-run --mode beat_flash
+.\.venv\Scripts\python.exe run.py sync --dry-run --mode spectrum
 ```
 
-Modos: `combo` (por defecto), `harmony`, `bars`, `beat_flash`, `spectrum`,
-`sustain`, `roles`, `idle`.
+Modos: `combo` (por defecto), `harmony`, `spectrum`, `sustain`, `wash`, `idle`.
+
+`bars` y `beat_flash` se retiraron por redundantes: medidos sobre audio real,
+`bars` salia identico a `combo` en el 81.1% de los frames de `summer.wav` —sin
+enganche de compas cae al mismo color espectral— y `beat_flash` correlacionaba
+0.999 con `bars` en brillo. El seguimiento de compas NO desaparece: sigue
+alimentando `downbeat_accent`, que acentua el "1" en todos los looks con pulso.
+
+`wash` conserva un color fijo (`idle_color`) y modula su brillo con la energia
+del audio; sirve para un techo que llena el cuarto, pero su pendiente depende
+del recorte cenital.
 
 ### Afinar sin editar ficheros
 
@@ -130,7 +139,7 @@ hue/       rest.py         CLIP v2: registro, areas, start/stop de la sesion
            client.py       sesion completa, keepalive y reconexion
 
 effects/   base.py         RenderContext, envolvente del beat, mezcla de color
-           modes.py        combo | harmony | bars | beat_flash | spectrum | sustain | roles | idle
+           modes.py        combo | harmony | spectrum | sustain | wash | idle
 
 engine.py                  orquestador: audio -> AudioState publicado
 state.py                   estado compartido, publicado por swap atomico
@@ -277,27 +286,46 @@ color dice que suena** (mezcla de graves/medios/agudos) y **el brillo dice
 cuando** (envolvente del beat). Juntarlas produce un estrobo; separarlas se lee
 como musica.
 
-`roles` generaliza esa separacion a cualquier area: `channel_roles` asigna un
-rol por canal y en el mismo orden de insercion del bridge. `pulso` usa `combo`,
-`armonia` usa `harmony`, `espectro` usa `spectrum` y `sostenido` usa `sustain`.
-Asi la pared puede marcar **cuando** cae el beat y una luz cenital puede dejar
-ver **que** acorde suena, sin asumir una geometria ni un numero de luces. Si la
-lista no describe todos los canales o contiene un rol invalido, degrada a
-`combo` entero para no dejar una luz con el color anterior.
+La capa de composicion asigna un look real por canal con `channel_modes` y
+aplica despues cuatro controles de salida en el mismo orden de insercion del
+bridge: `channel_range`, `channel_saturation`, `channel_hue_shift` y
+`channel_normalize`. El rango separa suelo y techo de brillo, la saturacion y
+el hue dan una paleta propia a cada foco, y la normalizacion es un escalar
+0..1 para no elegir entre apagado y compresion total. Asi la pared puede llevar
+`combo` con rango 0.25..1.0 y el techo `harmony` con 0.45..1.0, sin asumir una
+geometria ni un numero de luces. `--mode X` conserva X como look en todos los
+canales; los controles fisicos por canal siguen aplicandose.
 
-En una luz cenital usa `armonia` (maximo 0.030 de brillo por frame) o
-`espectro` (plano, 0.000). `pulso` y `sostenido` sin mezcla saltan 0.336 por
-frame a 120 BPM y estroboscopan la periferia, donde mas importa evitarlo.
+El seguidor de pico de `channel_normalize` sube en un frame y baja en 120 s,
+con suelo 0.60. El suelo limita la ganancia inicial a 1.67x; el release evita
+que el seguidor nivele secciones hasta volverlas iguales. En summer.wav, la
+razon t=8..17 / t=20..24 es 1.003 con release de 12 s y 0.964 con 120 s.
+
+Levantar el suelo con `channel_range` tiene un precio explicito: reduce la
+dinamica relativa. El CV de summer pasa de 0.526 crudo a 0.219 con rango;
+`channel_normalize` queda en 0.221, asi que no es quien comprime. A cambio,
+la normalizacion recupera recorrido absoluto de 0.241 a 0.348, por encima de
+0.321 crudo.
+
+El canal configurado como `ceiling_channel` se recorta en la salida a
+`ceiling_max_step` de brillo por frame, preservando el matiz RGB. El orden es
+fijo: efecto, rango, saturacion, hue, normalizacion y recorte. Ningun look
+activo respeta 0.03 por si solo sobre audio real; el techo se protege aunque
+su look cambie y el recorte queda ultimo para que ninguna normalizacion vuelva
+a ampliar un salto ya limitado. La memoria conserva el RGB de `idle` al salir
+del silencio y tambien permite apagar negro paso a paso: negro no se puede
+reescalar, asi que se atenúa el ultimo color hasta cero. Pon
+`ceiling_clamp: false` solo para inspeccionar a sabiendas el destello sin
+recortar.
 
 La envolvente se calcula de la *fase* del beat, no de eventos "hubo un beat".
 Por eso puede subir el brillo durante la fraccion `beat_attack` ANTERIOR al
 golpe. Combinado con `latency_compensation_ms`, el comando sale del PC antes
 del beat y la luz enciende justo en el.
 
-`bars` va un paso mas alla y usa el compas: la paleta avanza en el "1" de cada
-compas y vuelve a empezar cada frase, asi que se ve el 4x4 de la musica en vez
-de un parpadeo uniforme. Ademas, en todos los modos el downbeat pega mas fuerte
-que el resto de tiempos (`downbeat_accent`).
+El compas tambien pesa: en todos los modos con pulso el "1" pega mas fuerte que
+el resto de tiempos (`downbeat_accent`). Esa es hoy la unica salida del
+`BarTracker`, desde que `bars` se retiro.
 
 `sustain` es un modo nuevo y no cambia `combo`: solo deja el destello por beat
 cuando coinciden una envolvente estable y contenido tonal. El detector mide el
@@ -390,12 +418,12 @@ profundidad se recorta sola para que el salto por frame no pase de
 `harmony_max_step`. Hace falta porque la fase avanza (BPM/60)/fps por frame:
 un ajuste comodo a 120 BPM parpadea a 174.
 
-**El modo se aparta cuando no hay armonia fiable, y eso es casi siempre en
-mezcla densa.** Con el umbral bajo el color perseguia un centroide que da 4.84
-vueltas al circulo cromatico en 22 segundos sobre Billie Jean: ningun tema
-cambia de acorde a ese ritmo, era ruido pintado de color. Subiendo
-`harmony_min_tonality` a 0.08 el movimiento cae a 0.0004 por frame, o sea que
-el color simplemente se queda quieto y manda el espectral.
+**La puerta armonica abre donde hay contenido tonal producido, no solo en una
+progresion limpia.** En ocho temas reales, 0.08/0.20 quedaba cerrada en cinco:
+`harmony` era `spectrum` con otro nombre. La rampa 0.03/0.06 abre 77-100% de
+los temas tonales y sigue por encima del maximo 0.0228 del ruido rosa; hard
+techno y reggaeton solo la abren 21%. Bajar a 0.025 hace que malugi salte de
+30% a 77% sin razon musical, asi que 0.03 es el borde medido.
 
 Antes de dar con eso se probaron dos cosas que **no** funcionan, anotadas para
 que nadie las repita. Cuantizar a la clase de altura dominante con histeresis,

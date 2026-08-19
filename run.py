@@ -7,6 +7,7 @@ Analisis (no necesita el bridge):
     python run.py devices               lista los dispositivos loopback WASAPI
     python run.py record out.wav        graba el audio del sistema
     python run.py analyze out.wav       analiza un WAV con diagnostico
+    python run.py profile a.wav b.wav   tabla cruzada de varios WAV (calibracion)
 
 Sincronizacion (lo principal):
 
@@ -86,7 +87,7 @@ def main() -> int:
     p_sync.add_argument(
         "--mode",
         default=None,
-        help="combo | harmony | bars | beat_flash | spectrum | sustain | roles | idle",
+        help="combo | harmony | spectrum | sustain | wash | idle",
     )
     p_sync.add_argument("--area", default=None)
     p_sync.add_argument("--dry-run", action="store_true", help="sin bridge, solo consola")
@@ -100,6 +101,14 @@ def main() -> int:
     p_an.add_argument("--bpm", type=float, default=None, help="BPM real, para comparar")
     p_an.add_argument("--start", type=float, default=0.0, help="saltar N segundos")
     p_an.add_argument("--duration", type=float, default=None, help="analizar solo N segundos")
+
+    p_prof = sub.add_parser(
+        "profile",
+        help="tabla cruzada de varios WAV, una fila por tema",
+    )
+    p_prof.add_argument("wavs", nargs="+", type=Path, help="uno o mas WAV de 16 bits")
+    p_prof.add_argument("--start", type=float, default=0.0, help="saltar N segundos")
+    p_prof.add_argument("--duration", type=float, default=None, help="analizar solo N segundos")
 
     args = parser.parse_args()
     try:
@@ -160,6 +169,11 @@ def main() -> int:
         from huebpm.cli.analyze import run_analyze
 
         return run_analyze(cfg, args.wav, args.bpm, args.start, args.duration)
+
+    if args.command == "profile":
+        from huebpm.cli.profile import run_profile
+
+        return run_profile(cfg, args.wavs, args.start, args.duration)
 
     if args.command == "devices":
         from huebpm.audio.capture import find_default_loopback, list_loopback_devices

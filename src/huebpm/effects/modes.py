@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from .base import (
     Channels,
+    Color,
+    Effect,
     RenderContext,
     apply_onset_flash,
     beat_envelope,
@@ -14,7 +16,6 @@ from .base import (
     harmony_color,
     harmony_mix,
     onset_accent,
-    saturate,
     scale,
     spectrum_color,
     sustain_mix,
@@ -32,17 +33,6 @@ class IdleEffect:
         return fill(color, ctx.channel_count)
 
 
-class BeatFlashEffect:
-    """Golpe de brillo en cada beat, color fijo del reposo."""
-
-    name = "beat_flash"
-
-    def render(self, ctx: RenderContext) -> Channels:
-        brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
-        color = apply_onset_flash(ctx, ctx.cfg.idle_color)
-        return fill(scale(color, brillo), ctx.channel_count)
-
-
 class SpectrumEffect:
     """Color por contenido espectral, brillo por energia. Sin ritmo."""
 
@@ -53,6 +43,34 @@ class SpectrumEffect:
         energy = max(bands[0], bands[1], bands[2])
         level = ctx.cfg.beat_floor + (1.0 - ctx.cfg.beat_floor) * energy
         return fill(scale(spectrum_color(ctx), level), ctx.channel_count)
+
+
+class WashEffect:
+    """Color fijo que respira con la energia, pensado para el techo.
+
+    Dos matices distintos se suman a marron sobre las paredes de un cuarto
+    pequeno. Reutilizar `idle_color` deja un unico color estable mientras la
+    energia conserva el movimiento; es el intermedio entre `idle` plano y
+    `spectrum`, que cambia de matiz. En render real a 50 fps tras el warmup,
+    Billie llega a p99 0.52 y maximo 0.65 por frame; Summer llega a 0.31.
+    Como el color es fijo, ``max(RGB) = nivel * max(idle_color)``: transmite
+    el salto de energia entero, mientras la mezcla de color de `spectrum`
+    amortigua su maximo RGB. Es el look mas abrupto y depende de `limit_slope`
+    en la salida, no de una suavidad propia.
+
+    En `summer.wav` se satura casi todo el tiempo (media de brillo crudo 0.925,
+    minimo 0.825, CV 0.036), donde degenera visualmente en un `idle` brillante.
+    Es una calibracion de `beat_floor`/energia, no una razon para cambiar el
+    color fijo.
+    """
+
+    name = "wash"
+
+    def render(self, ctx: RenderContext) -> Channels:
+        bands = list(ctx.state.bands) + [0.0, 0.0, 0.0]
+        energy = max(bands[0], bands[1], bands[2])
+        level = ctx.cfg.beat_floor + (1.0 - ctx.cfg.beat_floor) * energy
+        return fill(scale(ctx.cfg.idle_color, level), ctx.channel_count)
 
 
 class ComboEffect:
@@ -67,34 +85,6 @@ class ComboEffect:
     def render(self, ctx: RenderContext) -> Channels:
         brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
         color = apply_onset_flash(ctx, spectrum_color(ctx))
-        return fill(scale(color, brillo), ctx.channel_count)
-
-
-class BarsEffect:
-    """Un color por compas dentro de la frase, brillo del beat.
-
-    Es el modo que hace visible la estructura: la paleta avanza en el "1" de
-    cada compas y vuelve a empezar cada frase, asi que se ve el 4x4 de la
-    musica en vez de un parpadeo uniforme. Sin enganche de compas cae a color
-    espectral, porque rotar una paleta en tiempos arbitrarios se ve peor que
-    no rotarla.
-    """
-
-    name = "bars"
-
-    def render(self, ctx: RenderContext) -> Channels:
-        if ctx.bar_locked:
-            paleta = ctx.cfg.phrase_palette
-            compas = int(ctx.phrase_phase * len(paleta)) % len(paleta)
-            base = saturate(paleta[compas], ctx.cfg.saturation_boost)
-        else:
-            base = spectrum_color(ctx)
-
-        # El acento va fuera del if a proposito: el camino de respaldo se
-        # quedaba sin onsets, que es exactamente el fallo que dejo `combo`
-        # sin la feature entera.
-        color = apply_onset_flash(ctx, base)
-        brillo = min(1.0, beat_envelope(ctx) + onset_accent(ctx))
         return fill(scale(color, brillo), ctx.channel_count)
 
 
@@ -150,54 +140,78 @@ class SustainEffect:
         return fill(scale(spectrum_color(ctx), brillo), ctx.channel_count)
 
 
-class RolesEffect:
-    """Reparte pulso, armonia, espectro o sostenido por canal configurado.
+class CompositionEffect:
+    """Compone un look y una ganancia por canal sin ser un look registrable.
 
-    Una luz cenital que lleva `armonia` no debe convertirse en destello aunque
-    cambie de indice: su pendiente queda limitada por `harmony_max_step`.
-    Si la lista no describe exactamente el area, se conserva `combo` entero;
-    enviar una parte dejaria los demas canales mostrando un color viejo.
-
-    El cache por rol solo evita renders repetidos. Su correccion depende de que
-    los efectos sean funciones puras de `ctx`; si uno gana estado entre frames,
-    el compositor debe volver a evaluarlo por cada canal.
+    Un compositor dentro de ``EFFECTS`` podria componerse a si mismo y entrar
+    en recursion. Solo se aceptan sus ocho looks reales; si la configuracion
+    no describe el area entera se conserva el fallback para no dejar un canal
+    mostrando su RGB viejo.
     """
 
-    name = "roles"
-    valid_roles = frozenset(("pulso", "armonia", "espectro", "sostenido"))
+    name = "composicion"
 
-    def __init__(self) -> None:
-        self._combo = ComboEffect()
-        self._roles = {
-            "pulso": self._combo,
-            "armonia": HarmonyEffect(),
-            "espectro": SpectrumEffect(),
-            "sostenido": SustainEffect(),
-        }
+    def __init__(
+        self,
+        fallback: Effect,
+        channel_modes: tuple[str, ...] | None = None,
+        channel_gain: tuple[float, ...] | None = None,
+    ) -> None:
+        self.fallback = fallback
+        self.channel_modes = channel_modes
+        self.channel_gain = channel_gain
 
-    @classmethod
-    def is_valid(cls, channel_count: int, roles: tuple[str, ...]) -> bool:
-        return bool(roles) and len(roles) == channel_count and all(
-            role in cls.valid_roles for role in roles
+    def configuration(self, ctx: RenderContext) -> tuple[tuple[str, ...], tuple[float, ...]]:
+        modes = self.channel_modes if self.channel_modes is not None else ctx.cfg.channel_modes
+        gain = self.channel_gain if self.channel_gain is not None else ctx.cfg.channel_gain
+        return modes, gain
+
+    def is_valid(self, channel_count: int, cfg) -> bool:  # noqa: ANN001
+        modes = self.channel_modes if self.channel_modes is not None else cfg.channel_modes
+        gain = self.channel_gain if self.channel_gain is not None else cfg.channel_gain
+        return (
+            bool(modes)
+            and len(modes) == channel_count
+            and len(gain) == len(modes)
+            and all(name in EFFECTS for name in modes)
+            and all(0.0 <= value <= 1.0 for value in gain)
         )
 
     def render(self, ctx: RenderContext) -> Channels:
-        roles = ctx.cfg.channel_roles
-        if not self.is_valid(ctx.channel_count, roles):
-            return self._combo.render(ctx)
+        modes, gain = self.configuration(ctx)
+        if not self.is_valid(ctx.channel_count, ctx.cfg):
+            return self.fallback.render(ctx)
 
-        colores = {}
-        for role in roles:
-            if role not in colores:
-                colores[role] = self._roles[role].render(ctx)[0]
-        return {channel: colores[role] for channel, role in enumerate(roles)}
+        colores: dict[str, Color] = {}
+        for name in modes:
+            if name not in colores:
+                colores[name] = EFFECTS[name].render(ctx)[0]
+        return {
+            channel: scale(colores[name], gain[channel])
+            for channel, name in enumerate(modes)
+        }
 
 
 EFFECTS = {
     e.name: e
-    for e in (ComboEffect(), HarmonyEffect(), BarsEffect(),
-              BeatFlashEffect(), SpectrumEffect(), IdleEffect(), SustainEffect(), RolesEffect())
+    for e in (ComboEffect(), HarmonyEffect(),
+              SpectrumEffect(), SustainEffect(), IdleEffect(),
+              WashEffect())
 }
+
+LOOK_MAX_STEPS = {
+    "combo": 0.55,
+    "harmony": 0.51,
+    "spectrum": 0.50,
+    "sustain": 0.31,
+    "idle": 0.00,
+    "wash": 0.65,
+}
+"""Maximos medidos de brillo por frame a 50 fps sobre audio real.
+
+Sirven solo para avisar al arrancar: el recorte real vive en la salida y mide
+cada frame, porque cualquier envolvente de audio puede superar esta referencia.
+"""
 
 
 def get_effect(name: str):  # noqa: ANN201

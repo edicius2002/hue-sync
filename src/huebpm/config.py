@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field, fields
+from difflib import get_close_matches
 from pathlib import Path
 from typing import Any
 
@@ -179,19 +180,37 @@ class AnalysisConfig:
 @dataclass
 class RenderConfig:
     fps: float = 50.0
-    latency_compensation_ms: float = 120.0
+    latency_compensation_ms: float = 50.0
     """Cuanto *antes* del beat se emite el comando.
 
-    Cubre analisis + DTLS + el salto Zigbee del bridge. Se calibra a ojo
-    contra las luces reales; 120 ms es un punto de partida razonable dado que
-    el bridge solo empuja a Zigbee a 25 Hz.
+    Calibrado a ojo contra las luces reales, que es la unica forma: el stream
+    de entertainment es UDP unidireccional y no hay eco que cronometrar.
+    120 ms era un punto de partida y resulto alto; a 50 ms el destello y el
+    golpe se perciben como un solo evento.
+
+    Desglose de la cadena, con lo medible medido:
+
+        analisis                 ~0 ms de sesgo   el BeatClock PREDICE, no
+                                                  reacciona; el error contra
+                                                  ground truth es 1.8-10.8 ms
+        cuantizacion del render  10 ms de media   periodo de 20 ms a 50 fps
+        send() por UDP           0.07 ms          fire-and-forget, es ruido
+        Zigbee + subida del LED  el resto         no medible desde el PC
+
+    O sea que esto NO compensa el analisis: lo compensa casi todo el tramo de
+    salida. Por eso bajarlo no desincroniza el detector.
+
+    La tolerancia audiovisual es asimetrica: el ojo detecta antes que la luz se
+    adelante al sonido que no que se retrase. Si hay que equivocarse, mejor por
+    debajo. El error se ve donde el beat es corto: a 174 BPM el periodo es
+    345 ms y 50 ms de desvio son el 14%; a 76 BPM son el 6% y no se notan.
     """
 
 
 @dataclass
 class EffectsConfig:
     mode: str = "combo"
-    """combo | harmony | bars | beat_flash | spectrum | sustain | roles | idle"""
+    """combo | harmony | spectrum | sustain | wash | idle"""
 
     beat_attack: float = 0.08
     """Fraccion del beat que dura la subida ANTES del golpe.
@@ -213,16 +232,100 @@ class EffectsConfig:
     idle_brightness: float = 0.07
     """Estado en reposo cuando no suena nada: tenue y fijo, nunca apagado."""
 
-    channel_roles: tuple[str, ...] = ("pulso", "armonia")
-    """Rol de cada canal en `roles`, en el mismo orden que el area.
+    channel_modes: tuple[str, ...] = ("combo", "harmony")
+    """Un LOOK por canal, en orden de canal.
 
-    El indice de la tupla es el channel_id del bridge, no una posicion
-    geometrica. Una tupla evita que un override mutable cambie la configuracion
-    compartida mientras el loop de render la consulta a 50 fps.
+    Toma los nombres reales de modo, no alias: un modo es un look y tiene un
+    solo nombre. Incluye tambien `idle`, para que todos los looks reales se
+    puedan asignar a un canal.
 
-    En una luz cenital usa `armonia` (maximo 0.030 por frame) o `espectro`
-    (plano, 0.000). `pulso` y `sostenido` sin mezcla saltan 0.336 por frame a
-    120 BPM: llenan tambien la periferia, donde mas dispara la fotosensibilidad.
+    El indice es el channel_id del bridge, que es el ORDEN EN QUE SE ANADIERON
+    LAS LUCES AL AREA, no una posicion geometrica. Usa `run.py identify` para
+    saber cual es cual antes de asignar.
+
+    """
+    channel_gain: tuple[float, ...] = (0.7, 1.0)
+    """Compatibilidad temporal para `CompositionEffect` y YAML antiguo.
+
+    La salida real usa `channel_range`, `channel_saturation`,
+    `channel_hue_shift` y `channel_normalize`. Al cargar un YAML que aun tenga
+    `channel_gain`, `_apply` lo migra a rangos `0..ganancia`; si tambien hay un
+    `channel_range` nuevo, este tiene prioridad. Asi una configuracion vieja no
+    se acepta para despues ignorarla en silencio.
+    """
+
+    channel_range: tuple[tuple[float, float], ...] = ((0.25, 1.0), (0.45, 1.0))
+    """Suelo y techo de brillo por canal, en el orden de `channel_modes`.
+
+    Combo tenia mediana 0.20 y nunca alcanzaba 1.0 sobre summer.wav. Un rango
+    separa ambos controles: 0.25..1.0 levanta la pared sin recortar el pico, y
+    0.45..1.0 deja el techo como ambiente dominante sin confundirlo con una
+    ganancia que solo multiplicaba todo por igual.
+    """
+    channel_saturation: tuple[float, ...] = (1.0, 0.85)
+    """Multiplicador de saturacion HSV por canal, 0..1.
+
+    El techo llena la periferia: 0.85 baja su agresividad sin perder el hue
+    que comunica la armonia. La pared queda a 1.0 como acento localizado.
+    """
+    channel_hue_shift: tuple[float, ...] = (0.0, 0.08)
+    """Offset circular de hue por canal, 0..1.
+
+    Sumar el mismo offset conserva la distancia circular entre acordes: se
+    mueve la paleta del techo sin borrar que el acorde cambio.
+    """
+    channel_normalize: tuple[float, ...] = (0.0, 0.6)
+    """Cuanto acercar cada canal a su pico adaptativo, 0..1.
+
+    Cero conserva toda la dinamica; uno llena el rango disponible. El techo
+    usa 0.6 para ganar presencia sin comprimir por completo la estructura.
+    """
+    channel_normalize_floor: float = 0.60
+    """Minimo del pico de referencia para normalizar.
+
+    Sin suelo, un pasaje casi silencioso se dividiria por un pico diminuto y
+    encenderia la luz de golpe. 0.60 limita esa ganancia inicial a 1.67x.
+    """
+    channel_normalize_release: float = 120.0
+    """Segundos de release exponencial del pico de referencia.
+
+    El ataque es inmediato para que un pico nuevo nunca se sobreamplifique.
+    A 12 s, la razon de brillo entre t=8..17 y t=20..24 de summer.wav es
+    1.003: el contraste entre secciones queda en cero. A 120 s es 0.964. La
+    referencia lenta no dice cual seccion "debe" ser mas apagada; evita que
+    el seguidor nivele ambas hasta volverlas indistinguibles.
+    """
+
+    ceiling_channel: int | None = None
+    """Que canal es la luz cenital, o None si no hay ninguna declarada.
+
+    Una luz de techo llena el campo visual incluida la periferia, que es donde
+    mas dispara la fotosensibilidad; una lateral es un acento localizado. La
+    proteccion cuelga de la POSICION y no del look, porque cualquier look puede
+    asignarse a cualquier canal.
+
+    """
+    ceiling_max_step: float = 0.03
+    """Salto maximo de brillo por frame de render en el canal cenital.
+
+    Por encima de ~0.03 a 50 fps el ojo lo lee como parpadeo; es el mismo
+    numero que ya justifican `gentle_brightness` y `SustainEffect`.
+
+    Medido sobre audio real, NINGUN look activo lo respeta por si solo: los
+    maximos por frame van de 0.31 (`sustain`) a 0.65 (`wash`), y hasta
+    `harmony` llega a 0.51. Solo `idle` cumple. Por eso el recorte no
+    es una lista blanca de looks: se aplica siempre en el canal cenital.
+
+    El test que sostenia esa cota barre la fase del beat con el audio
+    congelado, asi que solo medi la componente del reloj; la envolvente del
+    audio mueve el brillo tanto o mas.
+    """
+    ceiling_clamp: bool = True
+    """Si recortar la pendiente en el canal cenital.
+
+    A False la proteccion se desactiva entera. Existe para poder ver un look
+    sin recortar a sabiendas, no como default: el modo de fallo silencioso
+    seria una luz cenital destellando sin que nadie lo haya elegido.
     """
 
     downbeat_accent: float = 0.35
@@ -230,14 +333,6 @@ class EffectsConfig:
 
     A 0 todos los beats pesan igual, que es lo que hacia que el efecto
     pareciera sincronizado pero no musical."""
-    phrase_palette: tuple[tuple[float, float, float], ...] = (
-        (1.0, 0.15, 0.05),
-        (1.0, 0.55, 0.0),
-        (0.15, 0.9, 0.4),
-        (0.2, 0.35, 1.0),
-    )
-    """Un color por compas dentro de la frase, para el modo `bars`."""
-
     onset_accent: float = 0.5
     """Golpe de brillo extra en los onsets fuera de tiempo, de 0 a 1.
 
@@ -254,15 +349,14 @@ class EffectsConfig:
     """Constante de caida del acento, en segundos. Por debajo de ~0.1 el
     destello dura 4 o 5 frames de render y pasa desapercibido."""
 
-    harmony_min_tonality: float = 0.08
+    harmony_min_tonality: float = 0.03
     """Por debajo no hay armonia fiable y el color viene del espectro.
 
-    Calibrado sobre material real: una progresion tonal limpia da 0.37 de
-    tonalidad, y una mezcla de pop o house se queda en 0.03-0.04, apenas por
-    encima del 0.008 del ruido blanco. Con el umbral anterior de 0.02 el modo
-    se enganchaba a mezclas densas y pintaba ruido; ahora se aparta y deja el
-    color espectral, que al menos responde a algo real."""
-    harmony_full_tonality: float = 0.20
+    Medido sobre ocho temas, 0.08..0.20 no abria en cinco; 0.03..0.06 abre
+    77-100% de los tonales y queda sobre el maximo 0.0228 de ruido rosa. Bajar
+    a 0.025 rompe malugi: sube de 30% a 77% sin razon musical.
+    """
+    harmony_full_tonality: float = 0.06
     """A partir de aqui el color es armonia pura. Entre los dos se mezcla
     progresivamente: un corte seco produce un fogonazo al cruzarlo."""
     """Por debajo de esto no hay armonia que seguir (percusion, ruido) y el
@@ -375,12 +469,44 @@ def _apply(obj: Any, data: dict | None) -> Any:
             value = tuple((int(m), float(w)) for m, w in value)
         elif key.endswith("_color"):
             value = tuple(float(x) for x in value)
-        elif key == "phrase_palette":
-            value = tuple(tuple(float(x) for x in c) for c in value)
-        elif key == "channel_roles":
-            value = tuple(str(role) for role in value)
+        else:
+            value = _a_tupla(value, getattr(obj, key, None))
         setattr(obj, key, value)
+        if key == "channel_gain" and "channel_range" not in data:
+            try:
+                if isinstance(value, tuple) and all(float(gain) >= 0.0 for gain in value):
+                    obj.channel_range = tuple((0.0, float(gain)) for gain in value)
+            except (TypeError, ValueError):
+                pass
     return obj
+
+
+def _a_tupla(valor: Any, referencia: Any) -> Any:
+    """Convierte una lista del YAML en tupla, siguiendo la forma del default.
+
+    Existe para no repetir el error que ya costo dos parches. Cada campo de
+    tupla necesitaba su propio `elif` en DOS sitios —aqui y en los overrides de
+    entorno—, y olvidar uno dejaba una lista donde el resto del codigo espera
+    una tupla: comportamiento distinto segun el camino, YAML o entorno.
+
+    Va como fallback DESPUES de los casos explicitos, no en su lugar: los que
+    ya estaban siguen decidiendo, asi que ningun campo existente cambia de
+    comportamiento. Solo alcanza a los que nadie caso a mano.
+
+    El tipo de los elementos sale del propio default, que es la unica fuente
+    fiable: los propios defaults declaran floats, cadenas y tuplas anidadas,
+    y de ahi se deduce sin listarlos.
+    """
+    if not isinstance(referencia, tuple) or not isinstance(valor, list):
+        return valor
+    modelo = referencia[0] if referencia else None
+    if isinstance(modelo, tuple):
+        return tuple(_a_tupla(list(v) if isinstance(v, list) else v, modelo) for v in valor)
+    # bool antes que int: bool es subclase de int y `int(True)` daria 1.
+    for tipo in (bool, int, float, str):
+        if isinstance(modelo, tipo):
+            return tuple(tipo(v) for v in valor)
+    return tuple(valor)
 
 
 def _coerce(texto: str, actual: Any) -> Any:
@@ -435,10 +561,19 @@ def apply_env_overrides(cfg: Config, entorno: dict[str, str] | None = None) -> l
         nombre = campo.lower()
         conocidos = {f.name for f in fields(destino)}
         if nombre not in conocidos:
-            raise ValueError(f"{clave}: {seccion.lower()} no tiene el campo {nombre!r}")
-        convertido = _coerce(valor, getattr(destino, nombre))
-        if nombre == "channel_roles":
-            convertido = tuple(str(role) for role in convertido)
+            # Sugerir el parecido mas cercano. Sin esto, una variable que quedo
+            # en la sesion de una prueba anterior tumba CUALQUIER comando con un
+            # mensaje que no dice como salir, y renombrar un campo convierte a
+            # todo el que tuviera el viejo puesto en un usuario bloqueado.
+            cerca = get_close_matches(nombre, sorted(conocidos), n=1, cutoff=0.6)
+            pista = f" Quiza querias {cerca[0]!r}." if cerca else ""
+            raise ValueError(
+                f"{clave}: {seccion.lower()} no tiene el campo {nombre!r}.{pista}"
+                f" Para quitarla: set {clave}= (Windows) o unset {clave} (shell)."
+            )
+        actual = getattr(destino, nombre)
+        convertido = _coerce(valor, actual)
+        convertido = _a_tupla(convertido, actual)
         setattr(destino, nombre, convertido)
         aplicados.append(f"{seccion.lower()}.{nombre} = {valor}")
     return sorted(aplicados)

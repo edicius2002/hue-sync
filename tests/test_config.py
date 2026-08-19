@@ -47,7 +47,7 @@ analysis:
 render:
   fps: 40.0
 effects:
-  mode: beat_flash
+  mode: spectrum
 """)
     cfg = load_config(ruta)
     assert cfg.audio.blocksize == 512
@@ -58,7 +58,7 @@ effects:
     assert cfg.analysis.sustain_energy_full == 0.25
     assert cfg.analysis.sustain_energy_zero == 0.50
     assert cfg.render.fps == 40.0
-    assert cfg.effects.mode == "beat_flash"
+    assert cfg.effects.mode == "spectrum"
 
 
 def test_clave_desconocida_falla_en_voz_alta(tmp_path):
@@ -105,12 +105,20 @@ def test_colores_se_convierten_a_tuplas(tmp_path):
     assert color == (0.9, 0.2, 0.1)
 
 
+def test_channel_gain_viejo_se_migra_a_channel_range(tmp_path):
+    """El formato antiguo conserva su efecto al cargarlo con el pipeline nuevo."""
+    ruta = escribir(tmp_path, "effects:\n  channel_gain: [0.6, 1.0]\n")
+    efectos = load_config(ruta).effects
+    assert efectos.channel_gain == (0.6, 1.0)
+    assert efectos.channel_range == ((0.0, 0.6), (0.0, 1.0))
+
+
 def test_el_config_del_repo_carga():
     """El config.yaml versionado debe ser valido: si se anade un campo al
     dataclass y no al yaml (o al reves), esto lo detecta."""
     cfg = load_config()
     assert cfg.render.fps > 0
-    assert cfg.effects.mode in ("combo", "beat_flash", "spectrum")
+    assert cfg.effects.mode in ("combo", "wash", "spectrum")
 
 
 def test_credenciales_sin_fichero_dan_error_accionable(tmp_path):
@@ -195,3 +203,28 @@ def test_una_variable_mal_escrita_falla_en_voz_alta():
         apply_env_overrides(cfg, {"HUEBPM_EFFECTS_ONSET_ACENTO": "0.5"})
     with pytest.raises(ValueError, match="seccion desconocida"):
         apply_env_overrides(cfg, {"HUEBPM_EFECTOS_ONSET_ACCENT": "0.5"})
+
+
+def test_un_campo_desconocido_sugiere_el_parecido_y_dice_como_quitarlo(monkeypatch):
+    """Una variable huerfana tumba CUALQUIER comando, asi que el mensaje tiene
+    que decir como salir.
+
+    Paso de verdad: al renombrar `channel_roles` a `channel_modes` quedo la
+    variable de una prueba anterior en la sesion y el error decia solo que el
+    campo no existia. Sin la sugerencia ni la salida, el usuario no tiene forma
+    de saber que la puso el mismo.
+    """
+    monkeypatch.setenv("HUEBPM_EFFECTS_CHANNEL_ROLES", '["a","b"]')
+    with pytest.raises(ValueError) as exc:
+        load_config()
+    mensaje = str(exc.value)
+    assert "channel_modes" in mensaje, "no sugiere el campo nuevo"
+    assert "set HUEBPM_EFFECTS_CHANNEL_ROLES=" in mensaje, "no dice como quitarla"
+
+
+def test_un_campo_sin_parecido_no_inventa_sugerencia(monkeypatch):
+    """La sugerencia solo aparece si de verdad se parece a algo."""
+    monkeypatch.setenv("HUEBPM_EFFECTS_XYZZY", "1")
+    with pytest.raises(ValueError) as exc:
+        load_config()
+    assert "Quiza querias" not in str(exc.value)
