@@ -9,7 +9,7 @@ elegido a ojo, y este repo ya se comio dos veces el coste de descubrirlo tarde.
 
 | Documento | Que responde | Estado |
 |---|---|---|
-| `modos-actuales.md` | Que hace cada modo, de que senal vive y **cuando decepciona** | **parcialmente superado** |
+| `modos-actuales.md` | Que hace cada look, de que senal vive y **cuando decepciona** | vigente |
 | `modos-redundantes.md` | Matrices de distancia RGB: que modos son la misma luz con otro nombre | vigente como evidencia |
 | `taxonomia-looks.md` | Los tres ejes (color / brillo / enganche), solapes y huecos | vigente como evidencia |
 | `senales-disponibles.md` | Que pide un diseno ambicioso, que existe, que cuesta y que es imposible | vigente |
@@ -28,9 +28,8 @@ retirados por redundantes, y `taxonomia-looks.md` propone `harmony_energy`
 como hueco a llenar. Se conservan porque una decision sin su medicion es
 indistinguible de una tomada a ojo, no porque describan el estado actual.
 
-`modos-actuales.md` esta **parcialmente superado**: la seccion de `spectrum`
-se actualizo con la paleta corta, pero el resto sigue describiendo el
-inventario viejo. Lleva el aviso en su cabecera.
+`modos-actuales.md` si describe el estado actual: cubre los seis looks vivos
+—incluido `wash`— y ya no cita `bars`, `beat_flash` ni `dual`.
 
 ## Material de referencia
 

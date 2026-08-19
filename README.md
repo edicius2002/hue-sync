@@ -58,6 +58,8 @@ py -3.11 -m venv .venv
 ```
 
 Modos: `combo` (por defecto), `harmony`, `spectrum`, `sustain`, `wash`, `idle`.
+Que hace cada uno, de que senal vive y **cuando decepciona**, en
+[`docs/modos-actuales.md`](docs/modos-actuales.md).
 
 `bars` y `beat_flash` se retiraron por redundantes: medidos sobre audio real,
 `bars` salia identico a `combo` en el 81.1% de los frames de `summer.wav` —sin
@@ -155,6 +157,28 @@ Tres hilos:
    actualiza el PLL.
 3. **Render** — corre a 50 Hz, consulta el reloj, evalua el efecto y emite el
    paquete HueStream.
+
+## Documentos de analisis
+
+Los umbrales de `config.yaml` no estan elegidos a ojo: cada uno sale de una
+medicion sobre ocho WAV de 25 s que cubren techno, hard dance, pop EDM, rap,
+reggaeton, trap, house y pop de los 80. Esas mediciones estan en
+[`docs/`](docs/README.md), y se conservan porque un numero sin su medicion es
+indistinguible de uno inventado.
+
+| Documento | Que responde |
+|---|---|
+| [`modos-actuales.md`](docs/modos-actuales.md) | Que hace cada look, de que senal vive y cuando decepciona |
+| [`capa-de-salida.md`](docs/capa-de-salida.md) | Como se calcula el brillo por canal, y por que los numeros no se comportan como parecen |
+| [`senales-disponibles.md`](docs/senales-disponibles.md) | Que pide un diseno ambicioso, que existe, que cuesta y que es imposible |
+| [`taxonomia-looks.md`](docs/taxonomia-looks.md) | Los tres ejes (color / brillo / enganche), solapes y huecos |
+| [`modos-redundantes.md`](docs/modos-redundantes.md) | Matrices de distancia RGB: que looks son la misma luz con otro nombre |
+| [`coordinacion-dos-focos.md`](docs/coordinacion-dos-focos.md) | Matriz de pares de looks: consistente, redundante o conflictivo |
+| [`compas-factibilidad.md`](docs/compas-factibilidad.md) | Si vale la pena otro detector de compas con estas senales |
+| [`dos-luces.md`](docs/dos-luces.md) | Analisis de diseno previo a la capa de composicion |
+
+`docs/README.md` dice cuales describen el estado actual y cuales se conservan
+solo como evidencia de una decision ya tomada.
 
 ## Por que un PLL y no deteccion reactiva
 
